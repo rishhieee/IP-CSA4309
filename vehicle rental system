@@ -1,0 +1,143 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>RentRide Vehicle Rental</title>
+<style>
+body{font-family:Arial;background:#eef3f8;margin:20px}
+section{background:white;padding:15px;margin:12px 0;border-radius:8px}
+input,select,button{padding:9px;margin:5px}
+button{background:#285780;color:white;border:0;cursor:pointer}
+.vehicle{display:inline-block;padding:15px;margin:8px;border:1px solid #ddd;border-radius:8px;width:210px}
+</style>
+</head>
+<body>
+<h1>RentRide - Vehicle Rental System</h1>
+
+<section><h2>Register / Login</h2>
+<input id="name" placeholder="Customer name">
+<input id="email" placeholder="Email">
+<select id="role"><option>User</option><option>Admin</option></select>
+<button onclick="login()">Login</button><p id="account"></p></section>
+
+<section><h2>Search Vehicles</h2>
+<input id="search" placeholder="Search location or vehicle" oninput="showVehicles()">
+<select id="type" onchange="showVehicles()">
+<option value="">All types</option><option>Car</option><option>SUV</option><option>Truck</option><option>Bike</option>
+</select>
+<div id="vehicles"></div></section>
+
+<section><h2>Book Vehicle</h2>
+<p id="selected">Select a vehicle first.</p>
+<input id="customerNo" placeholder="Customer number">
+<input id="address" placeholder="Address">
+<input id="startDate" type="date">
+<input id="endDate" type="date">
+<button onclick="bookVehicle()">Confirm Booking</button><p id="message"></p></section>
+
+<section><h2>My Bookings / Booking Status</h2><div id="history"></div></section>
+
+<section><h2>Admin: Add Vehicle</h2>
+<input id="vehicleName" placeholder="Vehicle name">
+<select id="vehicleType"><option>Car</option><option>SUV</option><option>Truck</option><option>Bike</option></select>
+<input id="location" placeholder="Location">
+<input id="price" type="number" placeholder="Price per day">
+<input id="description" placeholder="Vehicle details">
+<button onclick="addVehicle()">Add Vehicle</button><div id="admin"></div></section>
+
+<script>
+let user=null,selected=null;
+let vehicles=JSON.parse(localStorage.getItem("rrVehicles")||"null")||[
+{id:1,name:"Swift",type:"Car",location:"Chennai",price:1500,description:"Compact city car"},
+{id:2,name:"SUV X",type:"SUV",location:"Bengaluru",price:3000,description:"Family SUV"},
+{id:3,name:"Pickup Truck",type:"Truck",location:"Hyderabad",price:4000,description:"Utility truck"}];
+let bookings=JSON.parse(localStorage.getItem("rrBookings")||"[]");
+
+function save(){
+ localStorage.setItem("rrVehicles",JSON.stringify(vehicles));
+ localStorage.setItem("rrBookings",JSON.stringify(bookings));
+}
+function v(id){return document.getElementById(id).value.trim()}
+function login(){
+ if(!v("name")||!v("email"))return alert("Enter name and email");
+ user={name:v("name"),email:v("email"),role:v("role")};
+ document.getElementById("account").textContent="Logged in as "+user.name+" ("+user.role+")";
+ showHistory();showAdmin();
+}
+function showVehicles(){
+ let q=v("search").toLowerCase(),type=v("type");
+ document.getElementById("vehicles").innerHTML=
+ vehicles.filter(x=>(x.name+" "+x.location).toLowerCase().includes(q)&&(!type||x.type===type))
+ .map(x=>`<div class="vehicle"><h3>${x.name}</h3>
+ <p>${x.type} — ${x.location}</p><p>${x.description}</p>
+ <b>₹${x.price} per day</b><br>
+ <button onclick="selectVehicle(${x.id})">Select Vehicle</button></div>`).join("")||"No vehicles found";
+}
+function selectVehicle(id){
+ selected=vehicles.find(x=>x.id===id);
+ document.getElementById("selected").textContent=
+ selected.name+" — "+selected.type+" — ₹"+selected.price+"/day";
+}
+function bookVehicle(){
+ if(!user)return alert("Login first");
+ if(!selected)return alert("Select a vehicle");
+ let start=v("startDate"),end=v("endDate");
+ if(!start||!end||new Date(end)<new Date(start))return alert("Choose valid dates");
+ if(new Date(start+"T00:00:00")<new Date(new Date().toDateString()))return alert("Choose a future date");
+ let overlap=bookings.some(b=>b.vehicleId===selected.id&&
+ b.status==="Approved"&&new Date(start)<=new Date(b.end)&&new Date(end)>=new Date(b.start));
+ if(overlap)return alert("Vehicle already booked for these dates");
+ let days=Math.ceil((new Date(end)-new Date(start))/86400000)+1;
+ let b={id:"RR"+Date.now(),vehicleId:selected.id,vehicle:selected.name,
+ email:user.email,name:user.name,customerNo:v("customerNo"),
+ address:v("address"),start,end,days,total:days*selected.price,status:"Pending"};
+ bookings.push(b);save();showHistory();showAdmin();
+ document.getElementById("message").textContent=
+ "Booking request submitted. ID: "+b.id+" | Total: ₹"+b.total;
+}
+function showHistory(){
+ if(!user)return;
+ document.getElementById("history").innerHTML=
+ bookings.filter(b=>b.email===user.email).map(b=>
+ `<p>${b.id} | ${b.vehicle} | ${b.start} to ${b.end} | ₹${b.total} | ${b.status}
+ ${b.status==="Pending"?`<button onclick="cancelBooking('${b.id}')">Cancel Request</button>`:""}</p>`
+ ).join("")||"No bookings";
+}
+function cancelBooking(id){
+ let b=bookings.find(x=>x.id===id&&x.email===user?.email&&x.status==="Pending");
+ if(b){b.status="Cancelled";save();showHistory();showAdmin()}
+}
+function addVehicle(){
+ if(!user||user.role!=="Admin")return alert("Admin login required");
+ let name=v("vehicleName"),location=v("location"),
+ price=Number(v("price")),description=v("description");
+ if(!name||!location||price<=0||!description)return alert("Enter valid details");
+ vehicles.push({id:Date.now(),name,type:v("vehicleType"),location,price,description});
+ save();showVehicles();showAdmin();
+}
+function showAdmin(){
+ if(!user||user.role!=="Admin"){document.getElementById("admin").textContent="Admin login required";return}
+ document.getElementById("admin").innerHTML="<h3>Vehicles</h3>"+
+ vehicles.map(x=>`<p>${x.name} — ₹${x.price}/day <button onclick="deleteVehicle(${x.id})">Delete</button></p>`).join("")+
+ "<h3>Booking Requests</h3>"+
+ bookings.map(b=>`<p>${b.id} — ${b.name} — ${b.vehicle} — ${b.status}
+ ${b.status==="Pending"?`<button onclick="approve('${b.id}')">Approve</button><button onclick="reject('${b.id}')">Reject</button>`:""}</p>`).join("");
+}
+function approve(id){
+ if(!user||user.role!=="Admin")return;
+ let b=bookings.find(x=>x.id===id);
+ if(!b||b.status!=="Pending")return;
+ let overlap=bookings.some(x=>x.id!==id&&x.vehicleId===b.vehicleId&&x.status==="Approved"&&new Date(b.start)<=new Date(x.end)&&new Date(b.end)>=new Date(x.start));
+ if(overlap)return alert("Vehicle dates conflict with another approved booking");
+ b.status="Approved";save();showHistory();showAdmin();
+}
+function reject(id){if(!user||user.role!=="Admin")return;let b=bookings.find(x=>x.id===id);if(b&&b.status==="Pending"){b.status="Rejected";save();showHistory();showAdmin()}}
+function deleteVehicle(id){
+ if(!user||user.role!=="Admin")return alert("Admin login required");
+ if(bookings.some(b=>b.vehicleId===id&&["Pending","Approved"].includes(b.status)))return alert("Vehicle has active bookings");
+ vehicles=vehicles.filter(x=>x.id!==id);save();showVehicles();showAdmin();
+}
+showVehicles();
+</script>
+</body>
+</html>
