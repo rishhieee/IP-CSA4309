@@ -1,0 +1,218 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>Flight Reservation System</title>
+<style>
+body{font-family:Arial;background:#eef3f8;margin:20px}
+section{background:white;padding:15px;margin:15px 0;border-radius:8px}
+input,select,button{padding:9px;margin:5px}
+button{background:#205b80;color:white;border:0;cursor:pointer}
+table{width:100%;border-collapse:collapse}
+td,th{border:1px solid #ddd;padding:8px;text-align:left}
+</style>
+</head>
+<body>
+<h1>Flight Reservation System</h1>
+
+<section>
+<h2>Customer Login</h2>
+<input id="name" placeholder="Full name">
+<input id="email" type="email" placeholder="Email">
+<button onclick="login()">Login</button>
+<p id="account"></p>
+</section>
+
+<section>
+<h2>Search Flights</h2>
+<input id="from" placeholder="From">
+<input id="to" placeholder="Destination">
+<input id="date" type="date">
+<select id="classType">
+<option>Economy</option><option>Business</option><option>First Class</option>
+</select>
+<button onclick="searchFlights()">Search Flights</button>
+<div id="results"></div>
+</section>
+
+<section>
+<h2>Book Flight</h2>
+<p id="selected"></p>
+<input id="passenger" placeholder="Passenger name">
+<input id="age" type="number" placeholder="Age">
+<button onclick="bookFlight()">Pay and Book (Demo)</button>
+<p id="message"></p>
+</section>
+
+<section>
+<h2>My Tickets / Booking Status</h2>
+<div id="history"></div>
+<input id="ticketId" placeholder="Booking ID">
+<button onclick="checkStatus()">Check Status</button>
+<button onclick="cancelFlight()">Cancel Ticket</button>
+<button onclick="printTicket()">Print Ticket</button>
+<p id="status"></p>
+</section>
+
+<section>
+<h2>Customer Feedback</h2>
+<textarea id="feedback" placeholder="Enter feedback"></textarea>
+<button onclick="sendFeedback()">Submit Feedback</button>
+<div id="feedbackList"></div>
+</section>
+
+<section>
+<h2>Admin: Manage Flights</h2>
+<input id="flightName" placeholder="Flight number/name">
+<input id="adminFrom" placeholder="Origin">
+<input id="adminTo" placeholder="Destination">
+<input id="adminFare" type="number" placeholder="Base fare">
+<input id="adminSeats" type="number" placeholder="Seats">
+<button onclick="addFlight()">Add Flight</button>
+<button onclick="report()">Generate Report</button>
+<div id="adminList"></div>
+<pre id="reportOutput"></pre>
+</section>
+
+<script>
+let user=null,selected=null;
+let flights=JSON.parse(localStorage.getItem("flights")||"[]");
+let tickets=JSON.parse(localStorage.getItem("flightTickets")||"[]");
+let feedbacks=JSON.parse(localStorage.getItem("flightFeedback")||"[]");
+
+if(!flights.length){
+ flights=[
+ {id:1,name:"AI101",from:"Chennai",to:"Delhi",fare:4500,seats:40},
+ {id:2,name:"AI202",from:"Bengaluru",to:"Mumbai",fare:3500,seats:30},
+ {id:3,name:"AI303",from:"Hyderabad",to:"Chennai",fare:2500,seats:25}
+ ];
+ save();
+}
+function save(){
+ localStorage.setItem("flights",JSON.stringify(flights));
+ localStorage.setItem("flightTickets",JSON.stringify(tickets));
+ localStorage.setItem("flightFeedback",JSON.stringify(feedbacks));
+}
+function v(id){return document.getElementById(id).value.trim()}
+function login(){
+ let name=v("name"),email=v("email");
+ if(!name||!email)return alert("Enter name and email");
+ user={name,email};
+ document.getElementById("account").textContent="Logged in as "+name;
+ showHistory();
+}
+function multiplier(){
+ return {"Economy":1,"Business":2.5,"First Class":4}[v("classType")]||1;
+}
+function searchFlights(){
+ let f=v("from").toLowerCase(),t=v("to").toLowerCase();
+ let list=flights.filter(x=>
+ (!f||x.from.toLowerCase().includes(f))&&
+ (!t||x.to.toLowerCase().includes(t))&&x.seats>0);
+ document.getElementById("results").innerHTML=
+ "<table><tr><th>Flight</th><th>Route</th><th>Fare</th><th>Seats</th><th></th></tr>"+
+ list.map(x=>`<tr><td>${x.name}</td><td>${x.from} to ${x.to}</td>
+ <td>Rs. ${Math.round(x.fare*multiplier())}</td><td>${x.seats}</td>
+ <td><button onclick="selectFlight(${x.id})">Select</button></td></tr>`).join("")+"</table>";
+}
+function selectFlight(id){
+ selected=flights.find(x=>x.id===id);
+ document.getElementById("selected").textContent=
+ selected.name+" | "+selected.from+" to "+selected.to+
+ " | "+v("classType")+" | Rs. "+Math.round(selected.fare*multiplier());
+}
+function bookFlight(){
+ if(!user)return alert("Login first");
+ if(!selected)return alert("Select a flight first");
+ let passenger=v("passenger"),age=Number(v("age"));
+ if(!passenger||age<1||age>120)return alert("Enter valid passenger details");
+ if(selected.seats<1)return alert("No seats available");
+ let ticket={
+ id:"FL"+Date.now(),email:user.email,owner:user.name,
+ passenger,age,flight:selected.name,flightId:selected.id,
+ from:selected.from,to:selected.to,date:v("date")||"Not specified",
+ classType:v("classType"),fare:Math.round(selected.fare*multiplier()),
+ status:"Confirmed"
+ };
+ tickets.push(ticket);selected.seats--;save();
+ document.getElementById("message").textContent=
+ "Payment successful (demo). Booking ID: "+ticket.id+
+ ". E-ticket generated.";
+ showHistory();searchFlights();showAdmin();
+}
+function showHistory(){
+ if(!user)return;
+ let list=tickets.filter(t=>t.email===user.email);
+ document.getElementById("history").innerHTML=
+ "<table><tr><th>ID</th><th>Flight</th><th>Passenger</th><th>Date</th><th>Class</th><th>Fare</th><th>Status</th></tr>"+
+ list.map(t=>`<tr><td>${t.id}</td><td>${t.flight}</td><td>${t.passenger}</td>
+ <td>${t.date}</td><td>${t.classType}</td><td>Rs. ${t.fare}</td>
+ <td>${t.status}</td></tr>`).join("")+"</table>";
+}
+function findTicket(){
+ return tickets.find(t=>t.id===v("ticketId")&&t.email===user?.email);
+}
+function checkStatus(){
+ if(!user)return alert("Login first");
+ let t=findTicket();
+ document.getElementById("status").textContent=t?
+ "Booking ID: "+t.id+" | Status: "+t.status:"Ticket not found";
+}
+function cancelFlight(){
+ if(!user)return alert("Login first");
+ let t=findTicket();
+ if(!t||t.status!=="Confirmed")return alert("Active ticket not found");
+ t.status="Cancelled";
+ let f=flights.find(x=>x.id===t.flightId);
+ if(f)f.seats++;
+ save();showHistory();searchFlights();showAdmin();checkStatus();
+ alert("Ticket cancelled. Refund processing is not connected in this demo.");
+}
+function printTicket(){
+ if(!user)return alert("Login first");
+ let t=findTicket();
+ if(!t)return alert("Enter a valid booking ID");
+ let w=window.open("","_blank");
+ if(!w)return alert("Allow pop-ups to print the ticket");
+ w.document.write(`<h1>Flight E-Ticket</h1>
+ <p>Booking ID: ${t.id}</p><p>Passenger: ${t.passenger}</p>
+ <p>Flight: ${t.flight}</p><p>Route: ${t.from} to ${t.to}</p>
+ <p>Date: ${t.date}</p><p>Class: ${t.classType}</p>
+ <p>Fare: Rs. ${t.fare}</p><p>Status: ${t.status}</p>`);
+ w.document.close();w.print();
+}
+function sendFeedback(){
+ if(!user)return alert("Login first");
+ let text=v("feedback");if(!text)return alert("Enter feedback");
+ feedbacks.push({name:user.name,text});
+ save();showFeedback();document.getElementById("feedback").value="";
+}
+function showFeedback(){
+ document.getElementById("feedbackList").innerHTML=
+ feedbacks.map(x=>`<p><b>${x.name}:</b> ${x.text}</p>`).join("");
+}
+function addFlight(){
+ let name=v("flightName"),from=v("adminFrom"),to=v("adminTo");
+ let fare=Number(v("adminFare")),seats=Number(v("adminSeats"));
+ if(!name||!from||!to||fare<=0||seats<0)return alert("Enter valid details");
+ flights.push({id:Date.now(),name,from,to,fare,seats});
+ save();showAdmin();searchFlights();
+}
+function showAdmin(){
+ document.getElementById("adminList").innerHTML=
+ "<table><tr><th>Flight</th><th>Route</th><th>Fare</th><th>Seats</th></tr>"+
+ flights.map(f=>`<tr><td>${f.name}</td><td>${f.from} to ${f.to}</td>
+ <td>Rs. ${f.fare}</td><td>${f.seats}</td></tr>`).join("")+"</table>";
+}
+function report(){
+ document.getElementById("reportOutput").textContent=
+ "Total tickets: "+tickets.length+
+ "\nConfirmed: "+tickets.filter(t=>t.status==="Confirmed").length+
+ "\nCancelled: "+tickets.filter(t=>t.status==="Cancelled").length+
+ "\nConfirmed booking value: Rs. "+
+ tickets.filter(t=>t.status==="Confirmed").reduce((s,t)=>s+t.fare,0);
+}
+showAdmin();showFeedback();searchFlights();
+</script>
+</body>
+</html>
