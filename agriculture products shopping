@@ -1,0 +1,72 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>AgriMart</title>
+<style>
+body{font-family:Arial;background:#f0f6ed;margin:20px}
+section{background:white;padding:15px;margin:12px 0;border-radius:8px}
+input,select,button{padding:9px;margin:5px}
+button{background:#38733c;color:white;border:0}
+.item{display:inline-block;padding:12px;margin:8px;border:1px solid #ddd;width:190px}
+</style>
+</head>
+<body>
+<h1>AgriMart - Farmer Marketplace</h1>
+
+<section><h2>Register / Login</h2>
+<input id="name" placeholder="Name"><input id="email" placeholder="Email">
+<select id="role"><option>Public</option><option>Farmer</option></select>
+<button onclick="login()">Login</button><p id="account"></p>
+<button onclick="sendOTP()">Generate Demo OTP</button>
+<input id="otp" placeholder="Enter OTP"><button onclick="verifyOTP()">Verify OTP</button><p id="otpStatus"></p></section>
+
+<section><h2>Wallet</h2><p id="wallet">Balance: ₹0</p>
+<input id="amount" type="number" placeholder="Add money">
+<button onclick="addMoney()">Add Money</button></section>
+
+<section><h2>Search Products</h2>
+<input id="search" placeholder="Search seeds, tools..." oninput="showProducts()">
+<select id="category" onchange="showProducts()"><option value="">All</option><option>Seeds</option><option>Fertilizers</option><option>Equipment</option><option>Tools</option></select>
+<div id="products"></div></section>
+
+<section><h2>Cart and Order</h2><div id="cart"></div>
+<input id="address" placeholder="Shipping address">
+<button onclick="placeOrder()">Place Order</button><p id="message"></p></section>
+
+<section><h2>My Orders / Shipping Status</h2><div id="orders"></div></section>
+
+<section><h2>Farmer: Add Product</h2>
+<input id="pname" placeholder="Product name"><select id="pcat"><option>Seeds</option><option>Fertilizers</option><option>Equipment</option><option>Tools</option></select>
+<input id="price" type="number" placeholder="Price"><input id="stock" type="number" placeholder="Stock">
+<input id="description" placeholder="Description">
+<button onclick="addProduct()">Add Product</button><div id="farmerOrders"></div></section>
+
+<script>
+let user=null,otp=null,verified=false,cart=[];
+let products=JSON.parse(localStorage.getItem("agProducts")||"null")||[
+{id:1,name:"Tomato Seeds",category:"Seeds",price:100,stock:50,description:"Quality vegetable seeds",farmer:"Farm Store"},
+{id:2,name:"Organic Fertilizer",category:"Fertilizers",price:350,stock:30,description:"Organic soil fertilizer",farmer:"Farm Store"},
+{id:3,name:"Garden Tools",category:"Tools",price:500,stock:15,description:"Basic farming tool set",farmer:"Farm Store"}];
+let orders=JSON.parse(localStorage.getItem("agOrders")||"[]");
+let wallets=JSON.parse(localStorage.getItem("agWallets")||"{}");
+function save(){localStorage.setItem("agProducts",JSON.stringify(products));localStorage.setItem("agOrders",JSON.stringify(orders));localStorage.setItem("agWallets",JSON.stringify(wallets))}
+function v(id){return document.getElementById(id).value.trim()}
+function login(){if(!v("name")||!v("email"))return alert("Enter details");user={name:v("name"),email:v("email"),role:v("role")};if(wallets[user.email]===undefined)wallets[user.email]=0;document.getElementById("account").textContent="Logged in as "+user.name+" ("+user.role+")";save();refresh()}
+function sendOTP(){if(!user)return alert("Login first");otp=String(Math.floor(100000+Math.random()*900000));verified=false;document.getElementById("otpStatus").textContent="Demo OTP: "+otp}
+function verifyOTP(){if(!otp||v("otp")!==otp)return alert("Invalid OTP");verified=true;otp=null;document.getElementById("otpStatus").textContent="Verified"}
+function refresh(){if(!user)return;document.getElementById("wallet").textContent="Balance: ₹"+wallets[user.email];showOrders();showFarmerOrders()}
+function addMoney(){if(!user)return alert("Login first");let a=Number(v("amount"));if(a<=0)return alert("Enter valid amount");wallets[user.email]+=a;save();refresh()}
+function showProducts(){let q=v("search").toLowerCase(),c=v("category");document.getElementById("products").innerHTML=products.filter(p=>p.name.toLowerCase().includes(q)&&(!c||p.category===c)&&p.stock>0).map(p=>`<div class="item"><h3>${p.name}</h3><p>${p.category}</p><p>${p.description}</p><p>₹${p.price} | Stock ${p.stock}</p><button onclick="addCart(${p.id})">Add to Cart</button></div>`).join("")||"No products available"}
+function addCart(id){let p=products.find(x=>x.id===id),i=cart.find(x=>x.id===id);if(!p||p.stock<1)return alert("Out of stock");if(i){if(i.qty>=p.stock)return alert("Stock limit");i.qty++}else cart.push({...p,qty:1});showCart()}
+function showCart(){document.getElementById("cart").innerHTML=cart.map(p=>`<p>${p.name} × ${p.qty} — ₹${p.price*p.qty} <button onclick="removeItem(${p.id})">Remove</button></p>`).join("")+"<b>Total ₹"+cart.reduce((s,p)=>s+p.price*p.qty,0)+"</b>"}
+function removeItem(id){cart=cart.filter(p=>p.id!==id);showCart()}
+function placeOrder(){if(!user||!verified)return alert("Login and verify OTP first");if(!cart.length)return alert("Cart is empty");if(!v("address"))return alert("Enter shipping address");let total=cart.reduce((s,p)=>s+p.price*p.qty,0);if(wallets[user.email]<total)return alert("Insufficient wallet balance");for(let i of cart){let p=products.find(x=>x.id===i.id);if(!p||p.stock<i.qty)return alert("Stock changed; update cart")}wallets[user.email]-=total;cart.forEach(i=>products.find(p=>p.id===i.id).stock-=i.qty);orders.push({id:"AG"+Date.now(),email:user.email,name:user.name,farmer:cart[0].farmer,items:cart.map(p=>({name:p.name,qty:p.qty})),total,address:v("address"),status:"Order Placed"});cart=[];save();refresh();showCart();showProducts();document.getElementById("message").textContent="Order placed successfully"}
+function showOrders(){if(!user)return;document.getElementById("orders").innerHTML=orders.filter(o=>o.email===user.email).map(o=>`<p>${o.id} | ${o.items.map(i=>i.name+" × "+i.qty).join(", ")} | ₹${o.total} | ${o.status}</p>`).join("")||"No orders"}
+function addProduct(){if(!user||user.role!=="Farmer"||!verified)return alert("Farmer login and OTP verification required");let name=v("pname"),price=Number(v("price")),stock=Number(v("stock"));if(!name||price<=0||stock<0||!v("description"))return alert("Enter valid product details");products.push({id:Date.now(),name,category:v("pcat"),price,stock,description:v("description"),farmer:user.name});save();showProducts();alert("Product added")}
+function showFarmerOrders(){if(!user||user.role!=="Farmer")return;document.getElementById("farmerOrders").innerHTML="<h3>Orders</h3>"+orders.filter(o=>o.farmer===user.name).map(o=>`<p>${o.id} — ${o.status} <button onclick="updateOrder('${o.id}')">Mark Shipped</button></p>`).join("")}
+function updateOrder(id){if(!user||user.role!=="Farmer")return;let o=orders.find(x=>x.id===id&&x.farmer===user.name);if(o){o.status="Shipped";save();refresh()}}
+refresh();showProducts();showCart();
+</script>
+</body>
+</html>
