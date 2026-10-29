@@ -1,0 +1,192 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>Hotel Room Booking System</title>
+<style>
+body{font-family:Arial;background:#f5f1ed;margin:25px}
+section{background:white;padding:15px;margin:15px 0;border-radius:8px}
+input,select,button{padding:9px;margin:5px}
+button{background:#77543b;color:white;border:0;cursor:pointer}
+table{width:100%;border-collapse:collapse}
+td,th{border:1px solid #ddd;padding:8px;text-align:left}
+</style>
+</head>
+<body>
+<h1>Hotel Room Booking System</h1>
+
+<section>
+<h2>Register / Login</h2>
+<input id="name" placeholder="Name">
+<input id="email" type="email" placeholder="Email">
+<button onclick="login()">Login</button>
+<p id="account"></p>
+</section>
+
+<section>
+<h2>Search Rooms</h2>
+<input id="destination" placeholder="Destination">
+<label>Check-in <input id="checkin" type="date"></label>
+<label>Check-out <input id="checkout" type="date"></label>
+<select id="guests">
+<option value="1">1 Guest</option>
+<option value="2">2 Guests</option>
+<option value="3">3 Guests</option>
+<option value="4">4 Guests</option>
+</select>
+<button onclick="searchRooms()">Check Availability</button>
+<div id="rooms"></div>
+</section>
+
+<section>
+<h2>Book a Room</h2>
+<select id="roomType">
+<option>Standard</option>
+<option>Deluxe</option>
+<option>Suite</option>
+<option>Family</option>
+</select>
+<button onclick="bookRoom()">Book Room</button>
+<p id="message"></p>
+</section>
+
+<section>
+<h2>My Booking History</h2>
+<div id="history"></div>
+</section>
+
+<section>
+<h2>Admin: Manage Rooms</h2>
+<select id="adminType">
+<option>Standard</option><option>Deluxe</option>
+<option>Suite</option><option>Family</option>
+</select>
+<input id="price" type="number" placeholder="Price per night">
+<input id="quantity" type="number" placeholder="Room quantity">
+<button onclick="updateRoom()">Update Room</button>
+<div id="adminRooms"></div>
+</section>
+
+<section>
+<h2>Hotel Information</h2>
+<h3>About Us</h3><p>Comfortable accommodation for travellers.</p>
+<h3>Contact Us</h3><p>Email: hotel@example.com</p>
+<h3>Customer Service Q&A</h3>
+<p>Bookings can be cancelled at least 3 days before arrival.</p>
+<h3>Local Travel Guide</h3><p>Contact reception for local travel information.</p>
+<h3>Privacy Policy</h3><p>This demo stores booking information in your browser.</p>
+</section>
+
+<script>
+let user=null;
+let types=JSON.parse(localStorage.getItem("hotelTypes")||
+'{"Standard":{"price":2000,"qty":10},"Deluxe":{"price":3500,"qty":6},"Suite":{"price":6000,"qty":3},"Family":{"price":4500,"qty":4}}');
+let bookings=JSON.parse(localStorage.getItem("hotelBookings")||"[]");
+
+function save(){
+ localStorage.setItem("hotelTypes",JSON.stringify(types));
+ localStorage.setItem("hotelBookings",JSON.stringify(bookings));
+}
+function val(id){return document.getElementById(id).value.trim()}
+function login(){
+ let name=val("name"),email=val("email");
+ if(!name||!email)return alert("Enter name and email");
+ user={name,email};
+ document.getElementById("account").textContent="Logged in as "+name;
+ showHistory();
+}
+function getDates(){
+ let a=val("checkin"),b=val("checkout");
+ if(!a||!b||new Date(b)<=new Date(a)){
+  alert("Select valid check-in and check-out dates");return null;
+ }
+ return {a,b,nights:Math.round((new Date(b)-new Date(a))/86400000)};
+}
+function overlaps(a,b,c,d){
+ return new Date(a)<new Date(d)&&new Date(c)<new Date(b);
+}
+function available(type,r,exclude=null){
+ let used=bookings.filter(x=>x.type===type&&x.status==="Booked"&&
+ x.id!==exclude&&overlaps(r.a,r.b,x.checkin,x.checkout)).length;
+ return types[type].qty-used;
+}
+function searchRooms(){
+ let r=getDates();if(!r)return;
+ let dest=val("destination");
+ document.getElementById("rooms").innerHTML=
+ "<table><tr><th>Room</th><th>Destination</th><th>Price/night</th><th>Available</th></tr>"+
+ Object.entries(types).map(([t,x])=>
+ `<tr><td>${t}</td><td>${dest||"Local Hotel"}</td>
+ <td>Rs. ${x.price}</td><td>${Math.max(0,available(t,r))}</td></tr>`
+ ).join("")+"</table>";
+}
+function bookRoom(){
+ if(!user)return alert("Login first");
+ let r=getDates();if(!r)return;
+ let type=val("roomType");
+ let guests=Number(val("guests"));
+ if(available(type,r)<1)return alert("No rooms available");
+ let booking={
+  id:Date.now(),name:user.name,email:user.email,type,guests,
+  checkin:r.a,checkout:r.b,nights:r.nights,
+  total:types[type].price*r.nights,status:"Booked"
+ };
+ bookings.push(booking);save();showHistory();searchRooms();
+ document.getElementById("message").textContent=
+ "Booking confirmed! ID: "+booking.id+
+ ". Total: Rs. "+booking.total;
+}
+function showHistory(){
+ if(!user)return;
+ let list=bookings.filter(b=>b.email===user.email);
+ document.getElementById("history").innerHTML=
+ "<table><tr><th>ID</th><th>Room</th><th>Dates</th><th>Total</th><th>Status</th><th>Actions</th></tr>"+
+ list.map(b=>{
+  let allowed=(new Date(b.checkin)-new Date())/86400000>=3;
+  return `<tr><td>${b.id}</td><td>${b.type}</td>
+  <td>${b.checkin} to ${b.checkout}</td><td>Rs. ${b.total}</td>
+  <td>${b.status}</td><td>${
+   b.status==="Booked"&&allowed?
+   `<button onclick="changeBooking(${b.id})">Change</button>
+   <button onclick="cancelBooking(${b.id})">Cancel</button>`:
+   b.status==="Booked"?"Change/cancel closed":"—"
+  }</td></tr>`;
+ }).join("")+"</table>";
+}
+function cancelBooking(id){
+ let b=bookings.find(x=>x.id===id&&x.email===user?.email);
+ if(!b||b.status!=="Booked")return;
+ if((new Date(b.checkin)-new Date())/86400000<3)
+  return alert("Cancellation must be at least 3 days before arrival");
+ b.status="Cancelled";save();showHistory();searchRooms();
+}
+function changeBooking(id){
+ let b=bookings.find(x=>x.id===id&&x.email===user?.email);
+ if(!b||b.status!=="Booked")return;
+ if((new Date(b.checkin)-new Date())/86400000<3)
+  return alert("Changes must be made at least 3 days before arrival");
+ let a=prompt("New check-in date (YYYY-MM-DD)",b.checkin);
+ let c=prompt("New check-out date (YYYY-MM-DD)",b.checkout);
+ if(!a||!c||new Date(c)<=new Date(a))return alert("Invalid dates");
+ let r={a,b:c};
+ if(available(b.type,r,b.id)<1)return alert("Room unavailable on these dates");
+ b.checkin=a;b.checkout=c;
+ b.nights=Math.round((new Date(c)-new Date(a))/86400000);
+ b.total=types[b.type].price*b.nights;
+ save();showHistory();searchRooms();
+}
+function updateRoom(){
+ let t=val("adminType"),p=Number(val("price")),q=Number(val("quantity"));
+ if(p<=0||q<0||!Number.isFinite(p)||!Number.isInteger(q))
+  return alert("Enter valid price and room quantity");
+ types[t]={price:p,qty:q};save();showAdmin();searchRooms();
+}
+function showAdmin(){
+ document.getElementById("adminRooms").innerHTML="<ul>"+
+ Object.entries(types).map(([t,x])=>
+ `<li>${t}: Rs. ${x.price} per night, ${x.qty} rooms</li>`).join("")+"</ul>";
+}
+showAdmin();
+</script>
+</body>
+</html>
