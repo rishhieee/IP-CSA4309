@@ -1,0 +1,69 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>ComplainEase</title>
+<style>
+body{font-family:Arial;background:#f2f5f8;margin:20px}
+section{background:white;padding:15px;margin:12px 0;border-radius:8px}
+input,select,button,textarea{padding:9px;margin:5px}
+button{background:#315b80;color:white;border:0;cursor:pointer}
+</style>
+</head>
+<body>
+<h1>ComplainEase - Complaint Management</h1>
+<section><h2>Login / Register</h2>
+<input id="name" placeholder="Name"><input id="email" placeholder="Email">
+<select id="role"><option>User</option><option>Officer</option><option>Admin</option></select>
+<button onclick="login()">Login</button><p id="account"></p></section>
+
+<section><h2>Post Complaint</h2>
+<input id="title" placeholder="Complaint title">
+<select id="category"><option>Road</option><option>Water</option><option>Electricity</option><option>Other</option></select>
+<textarea id="description" placeholder="Complaint details"></textarea>
+<input id="location" placeholder="Location / address">
+<input id="proof" placeholder="Evidence URL (optional)">
+<button onclick="postComplaint()">Submit Complaint</button></section>
+
+<section><h2>My Complaints / Search Status</h2>
+<input id="complaintId" placeholder="Complaint ID">
+<button onclick="checkStatus()">Check Status</button><p id="status"></p>
+<div id="myComplaints"></div></section>
+
+<section><h2>Officer: Update Complaint</h2>
+<input id="officerId" placeholder="Complaint ID">
+<select id="newStatus"><option>Under Review</option><option>In Progress</option><option>Resolved</option><option>Rejected</option></select>
+<input id="workProof" placeholder="Resolution proof URL">
+<button onclick="updateComplaint()">Update</button></section>
+
+<section><h2>Feedback</h2>
+<input id="feedback" placeholder="Your feedback">
+<button onclick="sendFeedback()">Submit Feedback</button><div id="feedbackList"></div></section>
+
+<section><h2>Admin: Manage Accounts</h2>
+<input id="officerName" placeholder="Officer name">
+<input id="officerEmail" placeholder="Officer email">
+<button onclick="createOfficer()">Create Officer Account</button>
+<div id="adminList"></div>
+<p>Admin contact: admin@complainease.example</p></section>
+
+<script>
+let user=null;
+let complaints=JSON.parse(localStorage.getItem("ceComplaints")||"[]");
+let officers=JSON.parse(localStorage.getItem("ceOfficers")||"[]");
+let feedbacks=JSON.parse(localStorage.getItem("ceFeedback")||"[]");
+function save(){localStorage.setItem("ceComplaints",JSON.stringify(complaints));localStorage.setItem("ceOfficers",JSON.stringify(officers));localStorage.setItem("ceFeedback",JSON.stringify(feedbacks))}
+function v(id){return document.getElementById(id).value.trim()}
+function login(){if(!v("name")||!v("email"))return alert("Enter details");user={name:v("name"),email:v("email"),role:v("role")};document.getElementById("account").textContent="Logged in as "+user.name+" ("+user.role+")";showComplaints();showAdmin();showFeedback()}
+function postComplaint(){if(!user||user.role!=="User")return alert("Login as User");if(!v("title")||!v("description")||!v("location"))return alert("Complete the form");let c={id:"C"+Date.now(),email:user.email,name:user.name,title:v("title"),category:v("category"),description:v("description"),location:v("location"),proof:v("proof"),status:"Submitted",officer:"",workProof:""};complaints.push(c);save();showComplaints();alert("Complaint ID: "+c.id)}
+function showComplaints(){if(!user)return;document.getElementById("myComplaints").innerHTML=complaints.filter(c=>user.role==="Admin"||c.email===user.email).map(c=>`<p>${c.id} | ${c.title} | ${c.location} | ${c.status} ${c.workProof?"| Proof: "+c.workProof:""}</p>`).join("")||"No complaints"}
+function checkStatus(){let c=complaints.find(x=>x.id===v("complaintId")&&(x.email===user?.email||user?.role==="Admin"||user?.role==="Officer"));document.getElementById("status").textContent=c?c.title+" — "+c.status:"Complaint not found or access denied"}
+function updateComplaint(){if(!user||!["Officer","Admin"].includes(user.role))return alert("Officer/Admin login required");let c=complaints.find(x=>x.id===v("officerId"));if(!c)return alert("Complaint not found");c.status=v("newStatus");c.workProof=v("workProof");c.officer=user.email;save();showComplaints();alert("Status updated")}
+function createOfficer(){if(!user||user.role!=="Admin")return alert("Admin login required");if(!v("officerName")||!v("officerEmail"))return alert("Enter officer details");officers.push({name:v("officerName"),email:v("officerEmail")});save();showAdmin()}
+function showAdmin(){document.getElementById("adminList").innerHTML=officers.map(o=>`<p>${o.name} — ${o.email}</p>`).join("")}
+function sendFeedback(){if(!user)return alert("Login first");if(!v("feedback"))return alert("Enter feedback");feedbacks.push({name:user.name,text:v("feedback")});save();showFeedback()}
+function showFeedback(){document.getElementById("feedbackList").innerHTML=feedbacks.map(f=>`<p>${f.name}: ${f.text}</p>`).join("")}
+showComplaints();showAdmin();showFeedback();
+</script>
+</body>
+</html>
