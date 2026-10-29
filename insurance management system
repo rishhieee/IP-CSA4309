@@ -1,0 +1,30 @@
+
+<!DOCTYPE html>
+<html>
+<head><title>InsureEasy</title>
+<style>
+body{font-family:Arial;background:#f0f4fa;margin:20px}section{background:white;padding:15px;margin:12px 0;border-radius:8px}input,select,button{padding:9px;margin:5px}button{background:#315b91;color:white;border:0}
+</style></head>
+<body>
+<h1>InsureEasy — Insurance Management</h1>
+<section><h2>Login</h2><input id="name" placeholder="Name"><input id="email" placeholder="Email"><select id="role"><option>Customer</option><option>Agent</option><option>Admin</option></select><button onclick="login()">Login</button><p id="account"></p></section>
+<section><h2>Register as Agent</h2><input id="agentName" placeholder="Agent name"><input id="agentEmail" placeholder="Agent email"><button onclick="registerAgent()">Register Agent</button><div id="agents"></div></section>
+<section><h2>Browse Policies</h2><div id="policies"></div></section>
+<section><h2>Create Customer / Buy Policy</h2><input id="customerName" placeholder="Customer name"><input id="customerEmail" placeholder="Customer email"><select id="policy"><option>Health</option><option>Auto</option><option>Home</option></select><input id="premium" type="number" placeholder="Annual premium"><input id="due" type="date"><button onclick="createPolicy()">Save Policy</button><div id="customerPolicies"></div></section>
+<section><h2>Renewal Reminders</h2><button onclick="reminders()">Check Due Dates</button><div id="alerts"></div></section>
+<script>
+let user=null;
+let agents=JSON.parse(localStorage.getItem("iAgents")||"[]");
+let policies=JSON.parse(localStorage.getItem("iPolicies")||"[]");
+const products=[{name:"Health",description:"Medical expense coverage"},{name:"Auto",description:"Vehicle insurance"},{name:"Home",description:"Home and property coverage"}];
+function save(){localStorage.setItem("iAgents",JSON.stringify(agents));localStorage.setItem("iPolicies",JSON.stringify(policies))}
+function v(id){return document.getElementById(id).value.trim()}
+function login(){if(!v("name")||!v("email"))return alert("Enter login details");user={name:v("name"),email:v("email"),role:v("role")};document.getElementById("account").textContent="Logged in: "+user.name+" ("+user.role+")";showPolicies()}
+function registerAgent(){if(!user||user.role!=="Admin")return alert("Admin login required to register/approve agents");agents.push({name:v("agentName"),email:v("agentEmail"),approved:false});save();showAgents()}
+function showAgents(){document.getElementById("agents").innerHTML=agents.map((a,i)=>`<p>${a.name} — ${a.email} — ${a.approved?"Approved":"Pending"} <button onclick="approve(${i})">Approve</button></p>`).join("")}
+function approve(i){if(!user||user.role!=="Admin")return alert("Admin login required");agents[i].approved=true;save();showAgents()}
+function showPolicies(){document.getElementById("policies").innerHTML=products.map(p=>`<p><b>${p.name} Insurance</b>: ${p.description}</p>`).join("");document.getElementById("customerPolicies").innerHTML=policies.filter(p=>user&&(user.role==="Admin"||p.owner===user.email)).map(p=>`<p>${p.customer} — ${p.type} — ₹${p.premium}/year — Due ${p.due} — ${p.status}</p>`).join("")}
+function createPolicy(){if(!user)return alert("Login first");if(user.role==="Customer"&&v("customerEmail")!==user.email)return alert("Customers can only create a policy for themselves");if(user.role==="Agent"&&!agents.some(a=>a.email===user.email&&a.approved))return alert("Agent approval required");let customer=v("customerName"),email=v("customerEmail"),premium=Number(v("premium")),due=v("due");if(!customer||!email||premium<=0||!due)return alert("Fill all fields");policies.push({id:Date.now(),owner:user.email,customer,email,type:v("policy"),premium,due,status:"Active"});save();showPolicies();alert("Policy record created")}
+function reminders(){let now=new Date(),list=policies.filter(p=>{let d=(new Date(p.due)-now)/86400000;return d>=0&&d<=30});document.getElementById("alerts").innerHTML=list.map(p=>`<p>${p.customer}: ${p.type} policy renewal due ${p.due}</p>`).join("")||"No renewals due within 30 days"}
+showPolicies();showAgents();
+</script></body></html>
