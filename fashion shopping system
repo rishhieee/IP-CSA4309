@@ -1,0 +1,36 @@
+
+<!DOCTYPE html>
+<html>
+<head><title>StyleHub Fashion Store</title>
+<style>
+body{font-family:Arial;background:#f8f3f5;margin:20px}section{background:white;padding:15px;margin:12px 0;border-radius:8px}input,select,button{padding:9px;margin:5px}button{background:#823f61;color:white;border:0}.item{display:inline-block;background:#fff0f5;padding:14px;margin:8px;width:190px}
+</style></head>
+<body>
+<h1>StyleHub Fashion Store</h1>
+<section><h2>Login</h2><input id="name" placeholder="Name"><input id="email" placeholder="Email"><button onclick="login()">Login</button><p id="account"></p></section>
+<section><h2>Fashion Collection</h2><input id="search" placeholder="Search clothing" oninput="show()"><select id="category" onchange="show()"><option value="">All categories</option><option>Men</option><option>Women</option><option>Kids</option><option>Footwear</option><option>Accessories</option></select><div id="products"></div></section>
+<section><h2>Cart</h2><div id="cart"></div><button onclick="checkout()">Place Order</button><p id="message"></p></section>
+<section><h2>My Orders</h2><div id="orders"></div></section>
+<section><h2>Admin: Add Product</h2><input id="pname" placeholder="Product name"><input id="pcat" placeholder="Category"><input id="price" type="number" placeholder="Price"><input id="size" placeholder="Sizes e.g. S,M,L"><button onclick="add()">Add Product</button><div id="admin"></div></section>
+<script>
+let user=null,cart=[];
+let products=JSON.parse(localStorage.getItem("fProducts")||"null")||[
+{id:1,name:"Cotton Shirt",category:"Men",price:799,sizes:"S,M,L,XL"},
+{id:2,name:"Summer Dress",category:"Women",price:1299,sizes:"S,M,L"},
+{id:3,name:"Kids T-shirt",category:"Kids",price:399,sizes:"XS,S,M"},
+{id:4,name:"Sneakers",category:"Footwear",price:1599,sizes:"6,7,8,9"},
+{id:5,name:"Handbag",category:"Accessories",price:999,sizes:"One size"}];
+let orders=JSON.parse(localStorage.getItem("fOrders")||"[]");
+function save(){localStorage.setItem("fProducts",JSON.stringify(products));localStorage.setItem("fOrders",JSON.stringify(orders))}
+function v(id){return document.getElementById(id).value.trim()}
+function login(){if(!v("name")||!v("email"))return alert("Enter details");user={name:v("name"),email:v("email")};document.getElementById("account").textContent="Welcome "+user.name;showOrders()}
+function show(){let q=v("search").toLowerCase(),c=v("category");document.getElementById("products").innerHTML=products.filter(p=>p.name.toLowerCase().includes(q)&&(!c||p.category===c)).map(p=>`<div class="item"><h3>${p.name}</h3><p>${p.category}</p><p>Sizes: ${p.sizes}</p><b>₹${p.price}</b><br><button onclick="add(${p.id})">Add to Cart</button></div>`).join("")}
+function add(id){let p=products.find(x=>x.id===id),size=prompt("Choose size: "+p.sizes);if(!size||!p.sizes.split(",").map(x=>x.trim().toLowerCase()).includes(size.trim().toLowerCase()))return alert("Invalid size");cart.push({...p,chosenSize:size});showCart()}
+function showCart(){document.getElementById("cart").innerHTML=cart.map((p,i)=>`<p>${p.name} (${p.chosenSize}) — ₹${p.price} <button onclick="cart.splice(${i},1);showCart()">Remove</button></p>`).join("")+"<b>Total: ₹"+cart.reduce((s,p)=>s+p.price,0)+"</b>"}
+function checkout(){if(!user)return alert("Login first");if(!cart.length)return alert("Cart is empty");orders.push({id:"F"+Date.now(),email:user.email,items:cart.map(p=>p.name+" ("+p.chosenSize+")"),total:cart.reduce((s,p)=>s+p.price,0),status:"Order Placed"});cart=[];save();showCart();showOrders();document.getElementById("message").textContent="Order placed (demo payment)."}
+function showOrders(){if(!user)return;document.getElementById("orders").innerHTML=orders.filter(o=>o.email===user.email).map(o=>`<p>${o.id} | ${o.items.join(", ")} | ₹${o.total} | ${o.status}</p>`).join("")||"No orders"}
+function add(){let name=v("pname"),category=v("pcat"),price=Number(v("price")),sizes=v("size");if(!name||!category||price<=0||!sizes)return alert("Fill all fields");products.push({id:Date.now(),name,category,price,sizes});save();show();showAdmin()}
+function showAdmin(){document.getElementById("admin").innerHTML=products.map(p=>`<p>${p.name} ₹${p.price} <button onclick="remove(${p.id})">Delete</button></p>`).join("")}
+function remove(id){products=products.filter(p=>p.id!==id);save();show();showAdmin()}
+show();showCart();showAdmin();
+</script></body></html>
