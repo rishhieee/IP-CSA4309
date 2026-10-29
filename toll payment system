@@ -1,0 +1,66 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>EasyToll System</title>
+<style>
+body{font-family:Arial;background:#eef4f5;margin:20px}
+section{background:white;padding:15px;margin:12px 0;border-radius:8px}
+input,select,button{padding:9px;margin:5px}
+button{background:#176b68;color:white;border:0;cursor:pointer}
+</style>
+</head>
+<body>
+<h1>EasyToll - Online Toll Payment</h1>
+<section><h2>Register / Login</h2>
+<input id="name" placeholder="Name">
+<input id="email" placeholder="Email">
+<select id="role"><option>User</option><option>Admin</option><option>Toll Gate</option></select>
+<button onclick="login()">Login</button><p id="account"></p></section>
+
+<section><h2>Wallet</h2>
+<h3 id="balance">Balance: ₹0</h3>
+<input id="amount" type="number" placeholder="Amount">
+<button onclick="addMoney()">Add Money</button></section>
+
+<section><h2>Vehicle Details</h2>
+<input id="vehicle" placeholder="Vehicle number">
+<button onclick="addVehicle()">Add Vehicle</button>
+<div id="vehicles"></div></section>
+
+<section><h2>Buy Toll E-Ticket / Apply for Pass</h2>
+<select id="toll"><option>Chennai Toll Gate</option><option>Bengaluru Toll Gate</option><option>Hyderabad Toll Gate</option></select>
+<select id="passType"><option value="ticket">Single Toll Ticket ₹100</option><option value="pass">Monthly Toll Pass ₹1000</option></select>
+<button onclick="purchase()">Purchase</button><div id="passes"></div></section>
+
+<section><h2>Toll Gate Verification</h2>
+<input id="qr" placeholder="Enter ticket/pass ID">
+<button onclick="verify()">Verify Ticket / Pass</button><p id="verifyResult"></p></section>
+
+<section><h2>Transaction History</h2><div id="history"></div></section>
+
+<section><h2>Admin: Manage Toll Gates</h2>
+<input id="tollName" placeholder="Toll gate name">
+<input id="tollPrice" type="number" placeholder="Ticket price">
+<button onclick="addToll()">Add Toll Gate</button><div id="admin"></div></section>
+
+<script>
+let user=null;
+let accounts=JSON.parse(localStorage.getItem("tollAccounts")||"{}");
+let tolls=JSON.parse(localStorage.getItem("tollGates")||'{"Chennai Toll Gate":100,"Bengaluru Toll Gate":120,"Hyderabad Toll Gate":150}');
+let transactions=JSON.parse(localStorage.getItem("tollTransactions")||"[]");
+let vehicles=JSON.parse(localStorage.getItem("tollVehicles")||"[]");
+function save(){localStorage.setItem("tollAccounts",JSON.stringify(accounts));localStorage.setItem("tollGates",JSON.stringify(tolls));localStorage.setItem("tollTransactions",JSON.stringify(transactions));localStorage.setItem("tollVehicles",JSON.stringify(vehicles))}
+function v(id){return document.getElementById(id).value.trim()}
+function login(){if(!v("name")||!v("email"))return alert("Enter name and email");user={name:v("name"),email:v("email"),role:v("role")};if(!accounts[user.email])accounts[user.email]={balance:0,passes:[]};document.getElementById("account").textContent="Logged in: "+user.name+" ("+user.role+")";refresh()}
+function refresh(){if(!user)return;document.getElementById("balance").textContent="Balance: ₹"+accounts[user.email].balance;document.getElementById("vehicles").innerHTML=vehicles.filter(x=>x.email===user.email).map(x=>`<p>${x.number}</p>`).join("");document.getElementById("passes").innerHTML=accounts[user.email].passes.map(p=>`<p>ID: ${p.id} | ${p.type} | ${p.toll} | ${p.status} <button onclick="renew('${p.id}')">Renew</button></p>`).join("");document.getElementById("history").innerHTML=transactions.filter(t=>t.email===user.email).map(t=>`<p>${t.description} — ₹${t.amount}</p>`).join("");showAdmin()}
+function addMoney(){if(!user)return alert("Login first");let a=Number(v("amount"));if(a<=0)return alert("Enter valid amount");accounts[user.email].balance+=a;transactions.push({email:user.email,description:"Wallet top-up",amount:a});save();refresh()}
+function addVehicle(){if(!user)return alert("Login first");let n=v("vehicle").toUpperCase();if(!n)return alert("Enter vehicle number");if(vehicles.some(x=>x.number===n&&x.email===user.email))return alert("Vehicle already added");vehicles.push({email:user.email,number:n});save();refresh()}
+function purchase(){if(!user)return alert("Login first");let type=v("passType"),toll=v("toll");let price=type==="ticket"?(Number(tolls[toll])||100):1000;if(accounts[user.email].balance<price)return alert("Insufficient wallet balance");accounts[user.email].balance-=price;let p={id:"T"+Date.now(),email:user.email,toll,type:type==="ticket"?"Single ticket":"Monthly pass",status:"Approved"};accounts[user.email].passes.push(p);transactions.push({email:user.email,description:p.type+" at "+toll,amount:price});save();refresh();alert("Purchase successful. Ticket ID: "+p.id)}
+function renew(id){if(!user)return;let p=accounts[user.email].passes.find(x=>x.id===id);if(!p)return;let price=p.type==="Monthly pass"?1000:(Number(tolls[p.toll])||100);if(accounts[user.email].balance<price)return alert("Insufficient balance");accounts[user.email].balance-=price;p.status="Approved";transactions.push({email:user.email,description:"Renewal "+id,amount:price});save();refresh()}
+function verify(){let id=v("qr"),found=null;for(let a of Object.values(accounts)){found=a.passes.find(p=>p.id===id);if(found)break}document.getElementById("verifyResult").textContent=found?"Valid "+found.type+" — "+found.toll+" — "+found.status:"Invalid ticket/pass"}
+function addToll(){if(!user||user.role!=="Admin")return alert("Admin login required");let n=v("tollName"),p=Number(v("tollPrice"));if(!n||p<=0)return alert("Enter valid details");tolls[n]=p;save();document.getElementById("toll").innerHTML=Object.keys(tolls).map(t=>`<option>${t}</option>`).join("");showAdmin()}
+function showAdmin(){if(!user||user.role!=="Admin"){document.getElementById("admin").textContent="Admin login required";return}document.getElementById("admin").innerHTML=Object.entries(tolls).map(([n,p])=>`<p>${n}: ₹${p}</p>`).join("")}
+</script>
+</body>
+</html>
