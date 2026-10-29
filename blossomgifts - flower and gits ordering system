@@ -1,0 +1,36 @@
+
+<!DOCTYPE html>
+<html>
+<head><title>BlossomGifts</title>
+<style>
+body{font-family:Arial;background:#fff4f4;margin:20px}section{background:white;padding:15px;margin:12px 0;border-radius:8px}input,select,button{padding:9px;margin:5px}button{background:#a94f70;color:white;border:0}.item{display:inline-block;padding:15px;margin:8px;background:#fff0f5;width:190px}
+</style></head>
+<body>
+<h1>BlossomGifts — Flowers and Gifts</h1>
+<section><h2>Customer Login</h2><input id="name" placeholder="Name"><input id="email" placeholder="Email"><button onclick="login()">Login</button><p id="account"></p></section>
+<section><h2>Browse Gifts</h2><input id="search" placeholder="Search products" oninput="showProducts()"><select id="category" onchange="showProducts()"><option value="">All categories</option><option>Flowers</option><option>Gift Baskets</option><option>Personalized</option></select><div id="products"></div></section>
+<section><h2>Cart and Delivery</h2><div id="cart"></div><input id="address" placeholder="Delivery address"><input id="deliveryDate" type="date"><select id="deliveryTime"><option>Morning</option><option>Afternoon</option><option>Evening</option></select><button onclick="checkout()">Place Order</button><p id="message"></p></section>
+<section><h2>Track My Orders</h2><div id="orders"></div></section>
+<section><h2>Admin: Add Product</h2><input id="pname" placeholder="Product name"><input id="pcat" placeholder="Category"><input id="price" type="number" placeholder="Price"><input id="description" placeholder="Description"><button onclick="addProduct()">Add Product</button><div id="admin"></div></section>
+<script>
+let user=null,cart=[];
+let products=JSON.parse(localStorage.getItem("gProducts")||"null")||[
+{id:1,name:"Rose Bouquet",category:"Flowers",price:800,description:"Fresh red roses"},
+{id:2,name:"Gift Basket",category:"Gift Baskets",price:1200,description:"Gift basket for celebrations"},
+{id:3,name:"Custom Mug",category:"Personalized",price:450,description:"Personalized printed mug"}];
+let orders=JSON.parse(localStorage.getItem("gOrders")||"[]");
+function save(){localStorage.setItem("gProducts",JSON.stringify(products));localStorage.setItem("gOrders",JSON.stringify(orders))}
+function v(id){return document.getElementById(id).value.trim()}
+function login(){if(!v("name")||!v("email"))return alert("Enter details");user={name:v("name"),email:v("email")};document.getElementById("account").textContent="Welcome "+user.name;showOrders()}
+function showProducts(){let q=v("search").toLowerCase(),c=v("category");document.getElementById("products").innerHTML=products.filter(p=>p.name.toLowerCase().includes(q)&&(!c||p.category===c)).map(p=>`<div class="item"><h3>${p.name}</h3><p>${p.category}</p><p>${p.description}</p><b>₹${p.price}</b><br><button onclick="add(${p.id})">Add to Cart</button></div>`).join("")}
+function add(id){let p=products.find(x=>x.id===id),i=cart.find(x=>x.id===id);if(i)i.qty++;else cart.push({...p,qty:1});showCart()}
+function showCart(){document.getElementById("cart").innerHTML=cart.map(p=>`<p>${p.name} × ${p.qty} — ₹${p.price*p.qty} <button onclick="removeItem(${p.id})">Remove</button></p>`).join("")+"<b>Total ₹"+cart.reduce((s,p)=>s+p.price*p.qty,0)+"</b>"}
+function removeItem(id){cart=cart.filter(p=>p.id!==id);showCart()}
+function checkout(){if(!user)return alert("Login first");if(!cart.length)return alert("Cart is empty");if(!v("address")||!v("deliveryDate"))return alert("Enter delivery details");if(new Date(v("deliveryDate")+"T00:00:00")<new Date(new Date().toDateString()))return alert("Choose a future delivery date");orders.push({id:"G"+Date.now(),email:user.email,items:cart.map(p=>p.name+" × "+p.qty),total:cart.reduce((s,p)=>s+p.price*p.qty,0),address:v("address"),date:v("deliveryDate"),time:v("deliveryTime"),status:"Order Placed"});cart=[];save();showCart();showOrders();showAdmin();document.getElementById("message").textContent="Order placed successfully (demo payment)."}
+function showOrders(){if(!user)return;document.getElementById("orders").innerHTML=orders.filter(o=>o.email===user.email).map(o=>`<p>${o.id} | ${o.items.join(", ")} | ${o.date} ${o.time} | ₹${o.total} | ${o.status}</p>`).join("")||"No orders"}
+function addProduct(){let name=v("pname"),category=v("pcat"),price=Number(v("price")),description=v("description");if(!name||!category||price<=0||!description)return alert("Fill all fields");products.push({id:Date.now(),name,category,price,description});save();showProducts();showAdmin()}
+function showAdmin(){document.getElementById("admin").innerHTML=products.map(p=>`<p>${p.name} — ₹${p.price} <button onclick="removeProduct(${p.id})">Delete</button></p>`).join("")+"<h3>Update delivery status</h3>"+orders.map(o=>`<p>${o.id}: ${o.status} <button onclick="updateStatus('${o.id}')">Mark Delivered</button></p>`).join("")}
+function removeProduct(id){products=products.filter(p=>p.id!==id);save();showProducts();showAdmin()}
+function updateStatus(id){let o=orders.find(x=>x.id===id);if(o){o.status="Delivered";save();showOrders();showAdmin()}}
+showProducts();showCart();showAdmin();
+</script></body></html>
