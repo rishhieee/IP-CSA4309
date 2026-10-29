@@ -1,0 +1,63 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>VoteOnline</title>
+<style>
+body{font-family:Arial;background:#eef3f9;margin:20px}
+section{background:white;padding:15px;margin:12px 0;border-radius:8px}
+input,select,button{padding:9px;margin:5px}
+button{background:#245780;color:white;border:0}
+</style>
+</head>
+<body>
+<h1>VoteOnline - E-Voting System</h1>
+
+<section><h2>Voter Login</h2>
+<input id="voterId" placeholder="Voter ID">
+<button onclick="login()">Login</button><p id="loginMessage"></p></section>
+
+<section><h2>OTP Verification</h2>
+<button onclick="generateOTP()">Generate Demo OTP</button>
+<p id="otpMessage"></p>
+<input id="otpInput" placeholder="Enter OTP">
+<button onclick="verifyOTP()">Verify OTP</button><p id="verified"></p></section>
+
+<section><h2>Cast Your Vote</h2>
+<div id="candidates"></div>
+<button onclick="castVote()">Submit Vote</button><p id="voteMessage"></p></section>
+
+<section><h2>Admin: Create Candidate</h2>
+<input id="candidateName" placeholder="Candidate name">
+<input id="electionName" placeholder="Election name">
+<input id="ward" placeholder="Ward">
+<button onclick="addCandidate()">Add Candidate</button></section>
+
+<section><h2>Admin: Voter List</h2>
+<input id="newVoter" placeholder="New Voter ID">
+<button onclick="addVoter()">Add Voter</button>
+<button onclick="results()">View Election Results</button>
+<div id="voterList"></div><div id="result"></div></section>
+
+<script>
+let current=null,otp=null,verified=false;
+let voters=JSON.parse(localStorage.getItem("voVoters")||'["VOTER100","VOTER200","VOTER300"]');
+let candidates=JSON.parse(localStorage.getItem("voCandidates")||"null")||[
+{id:1,name:"Candidate A",election:"College Election",ward:"Ward 1",votes:0},
+{id:2,name:"Candidate B",election:"College Election",ward:"Ward 1",votes:0}];
+let voted=JSON.parse(localStorage.getItem("voVoted")||"[]");
+function save(){localStorage.setItem("voVoters",JSON.stringify(voters));localStorage.setItem("voCandidates",JSON.stringify(candidates));localStorage.setItem("voVoted",JSON.stringify(voted))}
+function v(id){return document.getElementById(id).value.trim()}
+function login(){let id=v("voterId");if(!voters.includes(id))return alert("Voter ID not found");current=id;verified=false;otp=null;document.getElementById("loginMessage").textContent="Logged in as "+id;document.getElementById("verified").textContent="Verify OTP before voting";showCandidates()}
+function generateOTP(){if(!current)return alert("Login first");otp=String(Math.floor(100000+Math.random()*900000));document.getElementById("otpMessage").textContent="Demo OTP: "+otp+" (real systems must send OTP securely)";verified=false}
+function verifyOTP(){if(!current||!otp)return alert("Login and generate OTP first");if(v("otpInput")!==otp)return alert("Incorrect OTP");verified=true;otp=null;document.getElementById("verified").textContent="OTP verified"}
+function showCandidates(){document.getElementById("candidates").innerHTML=candidates.map(c=>`<p><label><input type="radio" name="candidate" value="${c.id}">${c.name} — ${c.election} — ${c.ward}</label></p>`).join("")}
+function castVote(){if(!current||!verified)return alert("Login and verify OTP first");if(voted.includes(current))return alert("You have already voted");let id=Number(document.querySelector('input[name="candidate"]:checked')?.value);let c=candidates.find(x=>x.id===id);if(!c)return alert("Select a candidate");c.votes++;voted.push(current);save();verified=false;document.getElementById("voteMessage").textContent="Vote submitted successfully. Your voter ID cannot vote again.";showCandidates()}
+function addCandidate(){if(!v("candidateName")||!v("electionName")||!v("ward"))return alert("Fill all fields");candidates.push({id:Date.now(),name:v("candidateName"),election:v("electionName"),ward:v("ward"),votes:0});save();showCandidates()}
+function addVoter(){let id=v("newVoter");if(!id)return alert("Enter voter ID");if(voters.includes(id))return alert("Voter already exists");voters.push(id);save();showVoters()}
+function showVoters(){document.getElementById("voterList").textContent="Registered voter IDs: "+voters.join(", ")}
+function results(){document.getElementById("result").innerHTML=candidates.map(c=>`<p>${c.election} — ${c.name}: ${c.votes} votes</p>`).join("")}
+showCandidates();showVoters();
+</script>
+</body>
+</html>
