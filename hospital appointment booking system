@@ -1,0 +1,60 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>Hospital Appointment System</title>
+<style>
+body{font-family:Arial;background:#eef5f4;margin:20px}
+section{background:white;padding:15px;margin:12px 0;border-radius:8px}
+input,select,button{padding:9px;margin:5px}
+button{background:#28766b;color:white;border:0}
+</style>
+</head>
+<body>
+<h1>MedCare Hospital Appointment System</h1>
+<section><h2>Patient Login</h2>
+<input id="name" placeholder="Patient name">
+<input id="email" placeholder="Email">
+<button onclick="login()">Login / Register</button><p id="user"></p></section>
+<section><h2>Search Doctors</h2>
+<input id="search" placeholder="Search specialty or location" oninput="showDoctors()">
+<div id="doctors"></div></section>
+<section><h2>Book Appointment</h2>
+<select id="doctor"><option>Dr. Kumar</option><option>Dr. Priya</option><option>Dr. Ravi</option></select>
+<input id="specialty" placeholder="Specialty">
+<input id="location" placeholder="Hospital location">
+<input id="date" type="date">
+<select id="time"><option>09:00</option><option>10:00</option><option>11:00</option><option>14:00</option><option>15:00</option></select>
+<button onclick="book()">Book Appointment</button><p id="message"></p></section>
+<section><h2>Check-in</h2><input id="checkId" placeholder="Appointment ID">
+<button onclick="checkin()">Submit Check-in</button></section>
+<section><h2>My Appointments</h2><div id="history"></div></section>
+<section><h2>Doctor Rating / Feedback</h2>
+<select id="rating"><option>5</option><option>4</option><option>3</option><option>2</option><option>1</option></select>
+<input id="review" placeholder="Write feedback"><button onclick="feedback()">Submit</button>
+<div id="reviews"></div></section>
+<section><h2>Admin: Add Doctor</h2>
+<input id="newDoctor" placeholder="Doctor name"><input id="newSpecialty" placeholder="Specialty">
+<input id="newLocation" placeholder="Hospital location"><button onclick="addDoctor()">Add Doctor</button></section>
+<script>
+let user=null;
+let doctors=JSON.parse(localStorage.getItem("hDoctors")||"null")||[
+{name:"Dr. Kumar",specialty:"Cardiology",location:"Chennai"},
+{name:"Dr. Priya",specialty:"Dermatology",location:"Bengaluru"},
+{name:"Dr. Ravi",specialty:"Orthopedics",location:"Chennai"}];
+let appointments=JSON.parse(localStorage.getItem("hAppointments")||"[]");
+let reviews=JSON.parse(localStorage.getItem("hReviews")||"[]");
+function save(){localStorage.setItem("hDoctors",JSON.stringify(doctors));localStorage.setItem("hAppointments",JSON.stringify(appointments));localStorage.setItem("hReviews",JSON.stringify(reviews))}
+function v(id){return document.getElementById(id).value.trim()}
+function login(){if(!v("name")||!v("email"))return alert("Enter name and email");user={name:v("name"),email:v("email")};document.getElementById("user").textContent="Logged in: "+user.name;history()}
+function showDoctors(){let q=v("search").toLowerCase();document.getElementById("doctors").innerHTML=doctors.filter(d=>(d.name+d.specialty+d.location).toLowerCase().includes(q)).map(d=>`<p><b>${d.name}</b> — ${d.specialty}, ${d.location}</p>`).join("")||"No doctors found"}
+function book(){if(!user)return alert("Login first");let date=v("date"),time=v("time"),doctor=v("doctor");if(!date)return alert("Choose date");if(new Date(date+"T"+time)<new Date())return alert("Choose a future time");if(appointments.some(a=>a.doctor===doctor&&a.date===date&&a.time===time&&a.status==="Booked"))return alert("Slot unavailable");let a={id:"H"+Date.now(),email:user.email,name:user.name,doctor,date,time,status:"Booked",checked:false};appointments.push(a);save();history();document.getElementById("message").textContent="Appointment ID: "+a.id}
+function history(){if(!user)return;document.getElementById("history").innerHTML=appointments.filter(a=>a.email===user.email).map(a=>`<p>${a.id} | ${a.doctor} | ${a.date} ${a.time} | ${a.status} ${a.checked?"| Checked in":""} <button onclick="cancel('${a.id}')">Cancel</button></p>`).join("")||"No appointments"}
+function cancel(id){let a=appointments.find(x=>x.id===id&&x.email===user?.email);if(a){a.status="Cancelled";save();history()}}
+function checkin(){let a=appointments.find(x=>x.id===v("checkId")&&x.email===user?.email&&x.status==="Booked");if(!a)return alert("Active appointment not found");a.checked=true;save();history();alert("Check-in submitted")}
+function addDoctor(){if(!v("newDoctor")||!v("newSpecialty")||!v("newLocation"))return alert("Fill all fields");doctors.push({name:v("newDoctor"),specialty:v("newSpecialty"),location:v("newLocation")});save();showDoctors()}
+function feedback(){if(!user)return alert("Login first");if(!v("review"))return alert("Enter feedback");reviews.push({name:user.name,rating:v("rating"),review:v("review")});save();document.getElementById("reviews").innerHTML=reviews.map(r=>`<p>${r.name}: ${r.rating}/5 — ${r.review}</p>`).join("")}
+showDoctors();
+</script>
+</body>
+</html>
