@@ -1,0 +1,179 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>Library Management System</title>
+<style>
+body{font-family:Arial;background:#f2f5f4;margin:25px}
+section{background:white;padding:15px;margin:15px 0;border-radius:8px}
+input,select,button{padding:9px;margin:5px}
+button{background:#28665b;color:white;border:0;cursor:pointer}
+table{width:100%;border-collapse:collapse}
+td,th{padding:8px;border:1px solid #ddd;text-align:left}
+</style>
+</head>
+<body>
+<h1>Library Management System</h1>
+
+<section>
+<h2>Login</h2>
+<input id="name" placeholder="Student/Admin name">
+<select id="role">
+<option value="student">Student</option>
+<option value="admin">Librarian Admin</option>
+</select>
+<button onclick="login()">Login</button>
+<p id="welcome"></p>
+</section>
+
+<section>
+<h2>Search Books</h2>
+<input id="search" placeholder="Search book" oninput="showBooks()">
+<div id="bookList"></div>
+</section>
+
+<section>
+<h2>Admin: Add Book</h2>
+<input id="title" placeholder="Book title">
+<input id="author" placeholder="Author">
+<input id="copies" type="number" placeholder="Copies">
+<button onclick="addBook()">Add / Update Book</button>
+</section>
+
+<section>
+<h2>Issue / Return Book</h2>
+<input id="borrowTitle" placeholder="Exact book title">
+<button onclick="issueBook()">Issue Book</button>
+<button onclick="returnBook()">Return Book</button>
+<div id="history"></div>
+<h3 id="fine"></h3>
+</section>
+
+<section>
+<h2>Study Materials</h2>
+<input id="materialTitle" placeholder="Material name">
+<input id="year" placeholder="Year">
+<input id="semester" placeholder="Semester">
+<input id="materialURL" placeholder="Download URL">
+<button onclick="addMaterial()">Add Material (Admin)</button>
+<br>
+<input id="filterYear" placeholder="Filter year">
+<input id="filterSemester" placeholder="Filter semester">
+<button onclick="showMaterials()">Search Materials</button>
+<div id="materials"></div>
+</section>
+
+<script>
+let user=null;
+let books=JSON.parse(localStorage.getItem("books")||"[]");
+let loans=JSON.parse(localStorage.getItem("loans")||"[]");
+let materials=JSON.parse(localStorage.getItem("materials")||"[]");
+
+function save(){
+ localStorage.setItem("books",JSON.stringify(books));
+ localStorage.setItem("loans",JSON.stringify(loans));
+ localStorage.setItem("materials",JSON.stringify(materials));
+}
+function login(){
+ let name=document.getElementById("name").value.trim();
+ if(!name)return alert("Enter your name");
+ user={name,role:document.getElementById("role").value};
+ document.getElementById("welcome").textContent=
+ "Logged in as "+name+" ("+user.role+")";
+ showBooks();showHistory();
+}
+function addBook(){
+ if(!user||user.role!=="admin")return alert("Admin login required");
+ let title=document.getElementById("title").value.trim();
+ let author=document.getElementById("author").value.trim();
+ let copies=Number(document.getElementById("copies").value);
+ if(!title||!author||copies<1)return alert("Enter valid details");
+ let b=books.find(x=>x.title.toLowerCase()===title.toLowerCase());
+ if(b){
+   let issued=b.total-b.available;
+   if(copies<issued)return alert("Copies cannot be less than books issued");
+   b.author=author;b.total=copies;b.available=copies-issued;
+ }else{
+   books.push({title,author,total:copies,available:copies});
+ }
+ save();showBooks();
+}
+function showBooks(){
+ let q=document.getElementById("search").value.toLowerCase();
+ let list=books.filter(b=>(b.title+" "+b.author).toLowerCase().includes(q));
+ document.getElementById("bookList").innerHTML=
+ "<table><tr><th>Title</th><th>Author</th><th>Available</th><th>Action</th></tr>"+
+ list.map(b=>`<tr><td>${b.title}</td><td>${b.author}</td>
+ <td>${b.available}/${b.total}</td><td>${
+ user&&user.role==="admin"?
+ `<button onclick="deleteBook('${b.title.replace(/'/g,"\\'")}')">Delete</button>`:"Student"
+ }</td></tr>`).join("")+"</table>";
+}
+function deleteBook(title){
+ if(!user||user.role!=="admin")return alert("Admin login required");
+ if(loans.some(l=>l.title===title&&!l.returned))return alert("Book is currently issued");
+ books=books.filter(b=>b.title!==title);save();showBooks();
+}
+function issueBook(){
+ if(!user)return alert("Login first");
+ let title=document.getElementById("borrowTitle").value.trim();
+ let b=books.find(x=>x.title.toLowerCase()===title.toLowerCase());
+ if(!b)return alert("Book not found");
+ if(b.available<1)return alert("Book unavailable");
+ b.available--;
+ let issue=new Date(),due=new Date();
+ due.setDate(due.getDate()+14);
+ loans.push({user:user.name,title,issue:issue.toISOString(),
+ due:due.toISOString(),returned:null,fine:0});
+ save();showBooks();showHistory();
+ alert("Book issued. Due date: "+due.toLocaleDateString());
+}
+function returnBook(){
+ if(!user)return alert("Login first");
+ let title=document.getElementById("borrowTitle").value.trim();
+ let l=loans.find(x=>x.user===user.name&&
+ x.title.toLowerCase()===title.toLowerCase()&&!x.returned);
+ if(!l)return alert("No active loan found");
+ l.returned=new Date().toISOString();
+ l.fine=Math.max(0,Math.ceil(
+ (new Date(l.returned)-new Date(l.due))/86400000))*10;
+ let b=books.find(x=>x.title===l.title);
+ if(b)b.available++;
+ save();showBooks();showHistory();
+ alert("Returned. Fine: Rs. "+l.fine);
+}
+function showHistory(){
+ if(!user)return;
+ let list=loans.filter(l=>l.user===user.name);
+ document.getElementById("history").innerHTML=
+ "<h3>My Borrow History</h3><table><tr><th>Book</th><th>Issue Date</th><th>Due Date</th><th>Status</th><th>Fine</th></tr>"+
+ list.map(l=>`<tr><td>${l.title}</td>
+ <td>${new Date(l.issue).toLocaleDateString()}</td>
+ <td>${new Date(l.due).toLocaleDateString()}</td>
+ <td>${l.returned?"Returned":"Issued"}</td>
+ <td>Rs. ${l.fine}</td></tr>`).join("")+"</table>";
+ document.getElementById("fine").textContent=
+ "Total fine: Rs. "+list.reduce((s,l)=>s+l.fine,0);
+}
+function addMaterial(){
+ if(!user||user.role!=="admin")return alert("Admin login required");
+ let title=document.getElementById("materialTitle").value.trim();
+ let year=document.getElementById("year").value.trim();
+ let semester=document.getElementById("semester").value.trim();
+ let url=document.getElementById("materialURL").value.trim();
+ if(!title||!year||!semester||!url)return alert("Fill all fields");
+ if(!/^https?:\\/\\//i.test(url))return alert("Enter a valid HTTP/HTTPS URL");
+ materials.push({title,year,semester,url});save();showMaterials();
+}
+function showMaterials(){
+ let y=document.getElementById("filterYear").value.trim();
+ let s=document.getElementById("filterSemester").value.trim();
+ let list=materials.filter(m=>(!y||m.year===y)&&(!s||m.semester===s));
+ document.getElementById("materials").innerHTML="<ul>"+
+ list.map(m=>`<li>${m.title} - Year ${m.year}, Semester ${m.semester}
+ <a href="${m.url}" target="_blank" rel="noopener">Download</a></li>`).join("")+"</ul>";
+}
+showBooks();showMaterials();
+</script>
+</body>
+</html>
