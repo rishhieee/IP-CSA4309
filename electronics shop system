@@ -1,0 +1,37 @@
+
+<!DOCTYPE html>
+<html>
+<head><title>TechSavvy Electronics Store</title>
+<style>
+body{font-family:Arial;background:#eef2f7;margin:20px}section{background:white;padding:15px;margin:12px 0;border-radius:8px}input,select,button{padding:9px;margin:5px}button{background:#244f7a;color:white;border:0}.item{display:inline-block;background:#f6f8fb;padding:15px;margin:8px;border-radius:8px;width:200px}
+</style></head>
+<body>
+<h1>TechSavvy Electronics Store</h1>
+<section><h2>Login</h2><input id="name" placeholder="Name"><input id="email" placeholder="Email"><button onclick="login()">Login</button><p id="account"></p></section>
+<section><h2>Products</h2><input id="search" placeholder="Search products" oninput="showProducts()"><select id="category" onchange="showProducts()"><option value="">All</option><option>Phones</option><option>Laptops</option><option>Tablets</option><option>Accessories</option></select><div id="products"></div></section>
+<section><h2>Shopping Cart</h2><div id="cart"></div><button onclick="checkout()">Checkout</button><p id="message"></p></section>
+<section><h2>My Orders</h2><div id="orders"></div></section>
+<section><h2>Admin: Add Product</h2><input id="pname" placeholder="Product name"><input id="pcat" placeholder="Category"><input id="price" type="number" placeholder="Price"><input id="stock" type="number" placeholder="Stock"><button onclick="addProduct()">Add Product</button><div id="admin"></div></section>
+<script>
+let user=null,cart=[];
+let products=JSON.parse(localStorage.getItem("eProducts")||"null")||[
+{id:1,name:"Smartphone",category:"Phones",price:15000,stock:10},
+{id:2,name:"Laptop",category:"Laptops",price:50000,stock:5},
+{id:3,name:"Tablet",category:"Tablets",price:20000,stock:7},
+{id:4,name:"Headphones",category:"Accessories",price:1500,stock:20}];
+let orders=JSON.parse(localStorage.getItem("eOrders")||"[]");
+function save(){localStorage.setItem("eProducts",JSON.stringify(products));localStorage.setItem("eOrders",JSON.stringify(orders))}
+function v(id){return document.getElementById(id).value.trim()}
+function login(){if(!v("name")||!v("email"))return alert("Enter details");user={name:v("name"),email:v("email")};document.getElementById("account").textContent="Welcome "+user.name;showOrders()}
+function showProducts(){let q=v("search").toLowerCase(),c=v("category");document.getElementById("products").innerHTML=products.filter(p=>p.name.toLowerCase().includes(q)&&(!c||p.category===c)).map(p=>`<div class="item"><h3>${p.name}</h3><p>${p.category}</p><p>₹${p.price}</p><p>Stock: ${p.stock}</p><button onclick="addCart(${p.id})">Add to Cart</button></div>`).join("")}
+function addCart(id){let p=products.find(x=>x.id===id);let i=cart.find(x=>x.id===id);if(!p.stock)return alert("Out of stock");if(i){if(i.qty>=p.stock)return alert("Stock limit reached");i.qty++}else cart.push({...p,qty:1});showCart()}
+function showCart(){document.getElementById("cart").innerHTML=cart.map(p=>`<p>${p.name} × ${p.qty} = ₹${p.price*p.qty} <button onclick="removeItem(${p.id})">Remove</button></p>`).join("")+"<b>Total: ₹"+cart.reduce((s,p)=>s+p.price*p.qty,0)+"</b>"}
+function removeItem(id){cart=cart.filter(p=>p.id!==id);showCart()}
+function checkout(){if(!user)return alert("Login first");if(!cart.length)return alert("Cart empty");for(let i of cart){let p=products.find(x=>x.id===i.id);if(p.stock<i.qty)return alert("Insufficient stock: "+p.name)}cart.forEach(i=>products.find(p=>p.id===i.id).stock-=i.qty);orders.push({id:"E"+Date.now(),email:user.email,items:cart.map(i=>({...i})),total:cart.reduce((s,p)=>s+p.price*p.qty,0),status:"Placed"});cart=[];save();showCart();showProducts();showOrders();showAdmin();document.getElementById("message").textContent="Order placed (demo checkout)."}
+function showOrders(){if(!user)return;document.getElementById("orders").innerHTML=orders.filter(o=>o.email===user.email).map(o=>`<p>${o.id} | ₹${o.total} | ${o.status}</p>`).join("")||"No orders"}
+function addProduct(){let name=v("pname"),category=v("pcat"),price=Number(v("price")),stock=Number(v("stock"));if(!name||!category||price<=0||stock<0)return alert("Enter valid product details");products.push({id:Date.now(),name,category,price,stock});save();showProducts();showAdmin()}
+function showAdmin(){document.getElementById("admin").innerHTML=products.map(p=>`<p>${p.name} ₹${p.price}, stock ${p.stock} <button onclick="deleteProduct(${p.id})">Delete</button><button onclick="changePrice(${p.id})">Change Price</button></p>`).join("")}
+function deleteProduct(id){products=products.filter(p=>p.id!==id);save();showProducts();showAdmin()}
+function changePrice(id){let p=products.find(x=>x.id===id),n=Number(prompt("New price",p.price));if(n>0){p.price=n;save();showProducts();showAdmin()}}
+showProducts();showCart();showAdmin();
+</script></body></html>
