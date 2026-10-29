@@ -1,0 +1,65 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>VetCure Veterinary Consultation</title>
+<style>
+body{font-family:Arial;background:#f2f7ef;margin:20px}
+section{background:white;padding:15px;margin:12px 0;border-radius:8px}
+input,select,button,textarea{padding:9px;margin:5px}
+button{background:#4b783e;color:white;border:0}
+</style>
+</head>
+<body>
+<h1>VetCure - Veterinary Consultation</h1>
+
+<section><h2>Login / Register</h2>
+<input id="name" placeholder="Name"><input id="email" placeholder="Email">
+<select id="role"><option>Farmer</option><option>Doctor</option></select>
+<button onclick="login()">Login</button><p id="account"></p></section>
+
+<section><h2>Subscribe to a Clinic</h2>
+<select id="clinic"><option value="Government">Government Veterinary Hospital (Free)</option><option value="Private">Private Veterinary Clinic (₹200)</option></select>
+<button onclick="subscribe()">Subscribe</button><p id="subscription"></p></section>
+
+<section><h2>Post Animal Symptoms</h2>
+<input id="animal" placeholder="Animal type">
+<input id="area" placeholder="Village / area">
+<textarea id="symptoms" placeholder="Describe symptoms"></textarea>
+<input id="media" placeholder="Image/video URL (optional)">
+<button onclick="postCase()">Send to Doctor</button></section>
+
+<section><h2>My Cases / Doctor Response</h2><div id="cases"></div></section>
+
+<section><h2>Doctor: Respond to Case</h2>
+<input id="caseId" placeholder="Case ID">
+<textarea id="solution" placeholder="Advice / prescription"></textarea>
+<button onclick="respond()">Submit Response</button></section>
+
+<section><h2>Doctor: Manage News</h2>
+<input id="newsTitle" placeholder="News title">
+<input id="newsText" placeholder="News details">
+<button onclick="addNews()">Publish News</button><div id="news"></div></section>
+
+<section><h2>Disease Case Summary</h2>
+<button onclick="statistics()">Show Area Statistics</button><div id="stats"></div></section>
+
+<script>
+let user=null;
+let cases=JSON.parse(localStorage.getItem("vetCases")||"[]");
+let subscriptions=JSON.parse(localStorage.getItem("vetSubs")||"[]");
+let news=JSON.parse(localStorage.getItem("vetNews")||"[]");
+function save(){localStorage.setItem("vetCases",JSON.stringify(cases));localStorage.setItem("vetSubs",JSON.stringify(subscriptions));localStorage.setItem("vetNews",JSON.stringify(news))}
+function v(id){return document.getElementById(id).value.trim()}
+function login(){if(!v("name")||!v("email"))return alert("Enter details");user={name:v("name"),email:v("email"),role:v("role")};document.getElementById("account").textContent="Logged in as "+user.name+" ("+user.role+")";showCases()}
+function subscribe(){if(!user||user.role!=="Farmer")return alert("Login as Farmer");let clinic=v("clinic");if(clinic==="Private"&&!confirm("Demo payment of ₹200. Continue?"))return;subscriptions.push({email:user.email,clinic,active:true});save();document.getElementById("subscription").textContent="Subscribed to "+clinic+" clinic"}
+function postCase(){if(!user||user.role!=="Farmer")return alert("Login as Farmer");if(!subscriptions.some(s=>s.email===user.email&&s.active))return alert("Subscribe to a clinic first");if(!v("animal")||!v("area")||!v("symptoms"))return alert("Fill all required fields");cases.push({id:"VC"+Date.now(),email:user.email,farmer:user.name,animal:v("animal"),area:v("area"),symptoms:v("symptoms"),media:v("media"),solution:"",doctor:"",status:"Pending"});save();showCases();alert("Case submitted")}
+function showCases(){if(!user)return;document.getElementById("cases").innerHTML=cases.filter(c=>user.role==="Doctor"||c.email===user.email).map(c=>`<p><b>${c.id}</b> — ${c.animal} in ${c.area}<br>Symptoms: ${c.symptoms}<br>${c.media?"Media: "+c.media+"<br>":""}Status: ${c.status}<br>${c.solution?"Doctor's response: "+c.solution:"Awaiting response"}</p>`).join("")||"No cases"}
+function respond(){if(!user||user.role!=="Doctor")return alert("Doctor login required");let c=cases.find(x=>x.id===v("caseId"));if(!c||!v("solution"))return alert("Enter valid case ID and response");c.solution=v("solution");c.doctor=user.name;c.status="Responded";save();showCases();alert("Response submitted")}
+function addNews(){if(!user||user.role!=="Doctor")return alert("Doctor login required");if(!v("newsTitle")||!v("newsText"))return alert("Enter news details");news.push({title:v("newsTitle"),text:v("newsText")});save();showNews()}
+function showNews(){document.getElementById("news").innerHTML=news.map(n=>`<p><b>${n.title}</b>: ${n.text}</p>`).join("")}
+function statistics(){let groups={};cases.forEach(c=>groups[c.area]=(groups[c.area]||0)+1);document.getElementById("stats").innerHTML=Object.entries(groups).map(([a,n])=>`<p>${a}: ${n} reported cases</p>`).join("")||"No case data available"}
+showNews();showCases();
+</script>
+</body>
+</html>
