@@ -1,0 +1,38 @@
+
+<!DOCTYPE html>
+<html>
+<head><title>ReNewMarket</title>
+<style>
+body{font-family:Arial;background:#f0f5ef;margin:20px}section{background:white;padding:15px;margin:12px 0;border-radius:8px}input,select,button{padding:9px;margin:5px}button{background:#39734a;color:white;border:0}.item{padding:14px;border:1px solid #ddd;margin:8px;border-radius:8px}
+</style></head>
+<body>
+<h1>ReNewMarket — Second-Hand Marketplace</h1>
+<section><h2>Login / Register</h2><input id="name" placeholder="Name"><input id="email" placeholder="Email"><select id="role"><option>Buyer</option><option>Seller</option><option>Admin</option></select><button onclick="login()">Login</button><p id="account"></p></section>
+<section><h2>Browse Items</h2><input id="search" placeholder="Search items" oninput="showItems()"><select id="category" onchange="showItems()"><option value="">All categories</option><option>Electronics</option><option>Furniture</option><option>Clothing</option><option>Collectibles</option></select><div id="items"></div></section>
+<section><h2>Sell an Item</h2><input id="title" placeholder="Item name"><select id="newCategory"><option>Electronics</option><option>Furniture</option><option>Clothing</option><option>Collectibles</option></select><input id="price" type="number" placeholder="Price"><input id="description" placeholder="Description and condition"><button onclick="addItem()">Post Listing</button></section>
+<section><h2>Favorites</h2><div id="favorites"></div></section>
+<section><h2>My Transactions</h2><div id="transactions"></div></section>
+<section><h2>Admin: Manage Listings</h2><div id="admin"></div></section>
+<script>
+let user=null;
+let items=JSON.parse(localStorage.getItem("rItems")||"null")||[
+{id:1,title:"Used Laptop",category:"Electronics",price:18000,description:"Good working condition",seller:"Seller"},
+{id:2,title:"Study Table",category:"Furniture",price:1500,description:"Pre-owned wooden table",seller:"Seller"},
+{id:3,title:"Denim Jacket",category:"Clothing",price:600,description:"Gently used",seller:"Seller"}];
+let favorites=JSON.parse(localStorage.getItem("rFavorites")||"[]");
+let transactions=JSON.parse(localStorage.getItem("rTransactions")||"[]");
+function save(){localStorage.setItem("rItems",JSON.stringify(items));localStorage.setItem("rFavorites",JSON.stringify(favorites));localStorage.setItem("rTransactions",JSON.stringify(transactions))}
+function v(id){return document.getElementById(id).value.trim()}
+function login(){if(!v("name")||!v("email"))return alert("Enter details");user={name:v("name"),email:v("email"),role:v("role")};document.getElementById("account").textContent="Logged in as "+user.name+" ("+user.role+")";showFavorites();showTransactions()}
+function showItems(){let q=v("search").toLowerCase(),c=v("category");document.getElementById("items").innerHTML=items.filter(i=>i.title.toLowerCase().includes(q)&&(!c||i.category===c)).map(i=>`<div class="item"><h3>${i.title}</h3><p>${i.category} — ${i.description}</p><b>₹${i.price}</b><p>Seller: ${i.seller}</p><button onclick="favorite(${i.id})">Add Favorite</button><button onclick="buy(${i.id})">Buy Item</button><button onclick="offer(${i.id})">Make Offer</button></div>`).join("")||"No items found"}
+function addItem(){if(!user)return alert("Login first");if(user.role!=="Seller")return alert("Login as Seller to post listings");let title=v("title"),category=v("newCategory"),price=Number(v("price")),description=v("description");if(!title||price<=0||!description)return alert("Enter valid item details");items.push({id:Date.now(),title,category,price,description,seller:user.name});save();showItems();showAdmin();alert("Listing posted")}
+function favorite(id){if(!user)return alert("Login first");if(!favorites.some(f=>f.id===id&&f.email===user.email))favorites.push({id,email:user.email});save();showFavorites()}
+function showFavorites(){if(!user)return;document.getElementById("favorites").innerHTML=favorites.filter(f=>f.email===user.email).map(f=>{let i=items.find(x=>x.id===f.id);return i?`<p>${i.title} — ₹${i.price}</p>`:""}).join("")||"No favorites"}
+function buy(id){if(!user)return alert("Login first");let i=items.find(x=>x.id===id);if(!i)return;if(i.seller===user.name)return alert("You cannot buy your own listing");if(!confirm("Confirm demo purchase for ₹"+i.price+"?"))return;transactions.push({id:"R"+Date.now(),buyer:user.email,item:i.title,price:i.price,status:"Purchased"});items=items.filter(x=>x.id!==id);save();showItems();showTransactions();showAdmin();alert("Demo purchase recorded")}
+function offer(id){if(!user)return alert("Login first");let i=items.find(x=>x.id===id);if(!i)return;let amount=Number(prompt("Enter your offer in rupees",Math.floor(i.price*0.8)));if(amount<=0||!Number.isFinite(amount))return alert("Invalid offer");transactions.push({id:"R"+Date.now(),buyer:user.email,item:i.title,price:amount,status:"Offer submitted"});save();showTransactions();alert("Offer submitted (seller negotiation is not connected)")}
+function showTransactions(){if(!user)return;document.getElementById("transactions").innerHTML=transactions.filter(t=>t.buyer===user.email).map(t=>`<p>${t.id} | ${t.item} | ₹${t.price} | ${t.status}</p>`).join("")||"No transactions"}
+function showAdmin(){if(!user||user.role!=="Admin"){document.getElementById("admin").textContent="Log in as Admin to manage listings.";return}document.getElementById("admin").innerHTML=items.map(i=>`<p>${i.title} — ₹${i.price} — Seller: ${i.seller} <button onclick="deleteItem(${i.id})">Delete</button><button onclick="editPrice(${i.id})">Change Price</button></p>`).join("")}
+function deleteItem(id){if(!user||user.role!=="Admin")return alert("Admin login required");items=items.filter(i=>i.id!==id);save();showItems();showAdmin();showFavorites()}
+function editPrice(id){if(!user||user.role!=="Admin")return alert("Admin login required");let i=items.find(x=>x.id===id),p=Number(prompt("New price",i.price));if(p>0){i.price=p;save();showItems();showAdmin()}}
+showItems();showAdmin();
+</script></body></html>
