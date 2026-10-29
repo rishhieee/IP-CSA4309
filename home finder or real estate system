@@ -1,0 +1,34 @@
+
+<!DOCTYPE html>
+<html>
+<head><title>Home Finder</title>
+<style>
+body{font-family:Arial;background:#eef3f0;margin:20px}section{background:white;padding:15px;margin:12px 0;border-radius:8px}input,select,button{padding:9px;margin:5px}button{background:#30654e;color:white;border:0}.property{padding:12px;border:1px solid #ddd;margin:8px;border-radius:6px}
+</style></head>
+<body>
+<h1>Home Finder — Property Search</h1>
+<section><h2>Buyer Login</h2><input id="name" placeholder="Name"><input id="email" placeholder="Email"><button onclick="login()">Login</button><p id="account"></p></section>
+<section><h2>Search Properties</h2><input id="location" placeholder="Location" oninput="show()"><select id="type" onchange="show()"><option value="">All types</option><option>House</option><option>Apartment</option><option>Land</option><option>Commercial</option></select><input id="maxPrice" type="number" placeholder="Maximum price" oninput="show()"><div id="properties"></div></section>
+<section><h2>Saved Properties</h2><div id="saved"></div></section>
+<section><h2>Request Property Viewing</h2><input id="propertyId" placeholder="Property ID"><input id="visitDate" type="date"><button onclick="viewing()">Request Viewing</button><p id="visitMessage"></p></section>
+<section><h2>Admin: Add Property</h2><input id="title" placeholder="Property title"><input id="city" placeholder="Location"><select id="propertyType"><option>House</option><option>Apartment</option><option>Land</option><option>Commercial</option></select><input id="price" type="number" placeholder="Price"><input id="description" placeholder="Description"><button onclick="addProperty()">Add Property</button><div id="admin"></div></section>
+<script>
+let user=null;
+let properties=JSON.parse(localStorage.getItem("properties")||"null")||[
+{id:1,title:"Family House",city:"Chennai",type:"House",price:4500000,description:"Three-bedroom house"},
+{id:2,title:"City Apartment",city:"Bengaluru",type:"Apartment",price:3500000,description:"Two-bedroom apartment"},
+{id:3,title:"Residential Plot",city:"Hyderabad",type:"Land",price:1800000,description:"Residential plot"}];
+let saved=JSON.parse(localStorage.getItem("savedProperties")||"[]");
+let visits=JSON.parse(localStorage.getItem("propertyVisits")||"[]");
+function persist(){localStorage.setItem("properties",JSON.stringify(properties));localStorage.setItem("savedProperties",JSON.stringify(saved));localStorage.setItem("propertyVisits",JSON.stringify(visits))}
+function v(id){return document.getElementById(id).value.trim()}
+function login(){if(!v("name")||!v("email"))return alert("Enter name and email");user={name:v("name"),email:v("email")};document.getElementById("account").textContent="Welcome "+user.name;showSaved()}
+function show(){let q=v("location").toLowerCase(),t=v("type"),max=v("maxPrice")===""?Infinity:Number(v("maxPrice"));document.getElementById("properties").innerHTML=properties.filter(p=>p.city.toLowerCase().includes(q)&&(!t||p.type===t)&&p.price<=max).map(p=>`<div class="property"><h3>${p.title}</h3><p>ID: ${p.id} | ${p.city} | ${p.type}</p><p>${p.description}</p><b>₹${p.price.toLocaleString("en-IN")}</b><br><button onclick="saveProperty(${p.id})">Save</button></div>`).join("")||"No properties found"}
+function saveProperty(id){if(!user)return alert("Login first");if(!saved.some(s=>s.id===id&&s.email===user.email))saved.push({id,email:user.email});persist();showSaved()}
+function showSaved(){if(!user)return;document.getElementById("saved").innerHTML=saved.filter(s=>s.email===user.email).map(s=>{let p=properties.find(x=>x.id===s.id);return p?`<p>${p.title} — ${p.city}</p>`:""}).join("")||"No saved properties"}
+function viewing(){if(!user)return alert("Login first");let id=Number(v("propertyId")),date=v("visitDate");if(!properties.some(p=>p.id===id)||!date)return alert("Enter a valid property ID and date");visits.push({id:"V"+Date.now(),propertyId:id,email:user.email,date,status:"Requested"});persist();document.getElementById("visitMessage").textContent="Viewing request submitted"}
+function addProperty(){let title=v("title"),city=v("city"),type=v("propertyType"),price=Number(v("price")),description=v("description");if(!title||!city||price<=0||!description)return alert("Fill all fields");properties.push({id:Date.now(),title,city,type,price,description});persist();show();showAdmin()}
+function showAdmin(){document.getElementById("admin").innerHTML=properties.map(p=>`<p>${p.id}: ${p.title} — ₹${p.price} <button onclick="deleteProperty(${p.id})">Delete</button></p>`).join("")}
+function deleteProperty(id){properties=properties.filter(p=>p.id!==id);persist();show();showAdmin();showSaved()}
+show();showAdmin();
+</script></body></html>
