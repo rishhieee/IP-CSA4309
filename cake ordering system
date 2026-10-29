@@ -1,0 +1,200 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>Online Cake Ordering System</title>
+<style>
+body{font-family:Arial;background:#fff5f5;margin:20px}
+section{background:white;padding:15px;margin:15px 0;border-radius:8px}
+input,select,button,textarea{padding:9px;margin:5px}
+button{background:#a54e65;color:white;border:0;cursor:pointer}
+table{width:100%;border-collapse:collapse}
+td,th{padding:8px;border:1px solid #ddd;text-align:left}
+.cakes{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.cake{padding:14px;border:1px solid #e5cbd1;border-radius:8px}
+</style>
+</head>
+<body>
+<h1>Online Cake Ordering System</h1>
+
+<section>
+<h2>Customer Login / Registration</h2>
+<input id="name" placeholder="Name">
+<input id="email" type="email" placeholder="Email">
+<button onclick="login()">Register / Login</button>
+<p id="account"></p>
+</section>
+
+<section>
+<h2>Search Cakes</h2>
+<input id="search" placeholder="Search cake" oninput="showCakes()">
+<select id="category" onchange="showCakes()">
+<option value="">All Categories</option>
+<option>Birthday</option><option>Wedding</option>
+<option>Chocolate</option><option>Fruit</option>
+</select>
+<input id="minPrice" type="number" placeholder="Min price" oninput="showCakes()">
+<input id="maxPrice" type="number" placeholder="Max price" oninput="showCakes()">
+<div id="cakeList" class="cakes"></div>
+</section>
+
+<section>
+<h2>Shopping Cart</h2>
+<div id="cart"></div>
+<input id="cakeMessage" placeholder="Cake message (optional)">
+<input id="address" placeholder="Delivery address">
+<input id="deliveryDate" type="date">
+<button onclick="placeOrder()">Place Order (Demo Payment)</button>
+<p id="orderMessage"></p>
+</section>
+
+<section>
+<h2>My Orders / Shipping Status</h2>
+<div id="orders"></div>
+</section>
+
+<section>
+<h2>Admin: Add Cake</h2>
+<input id="cakeName" placeholder="Cake name">
+<select id="cakeCategory">
+<option>Birthday</option><option>Wedding</option>
+<option>Chocolate</option><option>Fruit</option>
+</select>
+<input id="cakePrice" type="number" placeholder="Price">
+<input id="cakeImage" placeholder="Image URL (optional)">
+<textarea id="cakeDescription" placeholder="Cake description"></textarea>
+<button onclick="addCake()">Add Cake</button>
+</section>
+
+<section>
+<h2>Admin: Manage Orders</h2>
+<input id="orderId" placeholder="Order ID">
+<select id="orderStatus">
+<option>Preparing</option><option>Baking</option>
+<option>Out for Delivery</option><option>Delivered</option>
+<option>Cancelled</option>
+</select>
+<button onclick="updateOrder()">Update Order Status</button>
+<div id="adminOrders"></div>
+</section>
+
+<script>
+let user=null,cart=[];
+let cakes=JSON.parse(localStorage.getItem("cakes")||"[]");
+let orders=JSON.parse(localStorage.getItem("cakeOrders")||"[]");
+
+if(!cakes.length){
+ cakes=[
+ {id:1,name:"Chocolate Cake",category:"Chocolate",price:600,
+ description:"Rich chocolate cake.",image:""},
+ {id:2,name:"Birthday Cake",category:"Birthday",price:800,
+ description:"Cake for birthday celebrations.",image:""},
+ {id:3,name:"Fruit Cake",category:"Fruit",price:500,
+ description:"Fresh fruit cake.",image:""},
+ {id:4,name:"Wedding Cake",category:"Wedding",price:2500,
+ description:"Special occasion cake.",image:""}
+ ];
+ save();
+}
+function save(){
+ localStorage.setItem("cakes",JSON.stringify(cakes));
+ localStorage.setItem("cakeOrders",JSON.stringify(orders));
+}
+function v(id){return document.getElementById(id).value.trim()}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function login(){
+ let name=v("name"),email=v("email");
+ if(!name||!email)return alert("Enter name and email");
+ user={name,email};
+ document.getElementById("account").textContent="Logged in as "+name;
+ showOrders();
+}
+function showCakes(){
+ let q=v("search").toLowerCase(),cat=v("category");
+ let min=v("minPrice")===""?0:Number(v("minPrice"));
+ let max=v("maxPrice")===""?Infinity:Number(v("maxPrice"));
+ let list=cakes.filter(c=>
+ c.name.toLowerCase().includes(q)&&(!cat||c.category===cat)&&
+ c.price>=min&&c.price<=max);
+ document.getElementById("cakeList").innerHTML=list.map(c=>
+ `<div class="cake">
+ ${c.image?`<img src="${esc(c.image)}" alt="${esc(c.name)}" style="width:100%;max-height:150px;object-fit:cover">`:""}
+ <h3>${esc(c.name)}</h3><p>${esc(c.description)}</p>
+ <p>Category: ${esc(c.category)}</p><b>Rs. ${c.price}</b><br>
+ <button onclick="addToCart(${c.id})">Add to Cart</button>
+ </div>`).join("")||"No cakes found";
+}
+function addToCart(id){
+ let c=cakes.find(x=>x.id===id);
+ if(!c)return;
+ let item=cart.find(x=>x.id===id);
+ if(item)item.qty++;else cart.push({...c,qty:1});
+ showCart();
+}
+function showCart(){
+ document.getElementById("cart").innerHTML=cart.length?
+ cart.map(c=>`<p>${esc(c.name)} — Rs. ${c.price} × ${c.qty}
+ <button onclick="removeOne(${c.id})">Remove one</button></p>`).join("")+
+ "<b>Total: Rs. "+cart.reduce((s,c)=>s+c.price*c.qty,0)+"</b>":
+ "Your cart is empty.";
+}
+function removeOne(id){
+ let item=cart.find(x=>x.id===id);
+ if(item){item.qty--;if(item.qty<=0)cart=cart.filter(x=>x.id!==id)}
+ showCart();
+}
+function placeOrder(){
+ if(!user)return alert("Login first");
+ if(!cart.length)return alert("Cart is empty");
+ let address=v("address"),date=v("deliveryDate");
+ if(!address||!date)return alert("Enter delivery address and date");
+ if(new Date(date+"T00:00:00")<new Date(new Date().toDateString()))
+  return alert("Choose a valid delivery date");
+ let order={
+ id:"CK"+Date.now(),email:user.email,name:user.name,
+ items:cart.map(c=>({name:c.name,price:c.price,qty:c.qty})),
+ message:v("cakeMessage"),address,date,
+ total:cart.reduce((s,c)=>s+c.price*c.qty,0),
+ status:"Preparing"
+ };
+ orders.push(order);save();cart=[];showCart();showOrders();showAdminOrders();
+ document.getElementById("orderMessage").textContent=
+ "Order placed! Order ID: "+order.id+
+ ". Demo payment successful. Total: Rs. "+order.total;
+}
+function showOrders(){
+ if(!user)return;
+ let list=orders.filter(o=>o.email===user.email);
+ document.getElementById("orders").innerHTML=
+ "<table><tr><th>Order ID</th><th>Cakes</th><th>Delivery Date</th><th>Total</th><th>Status</th></tr>"+
+ list.map(o=>`<tr><td>${o.id}</td><td>${o.items.map(i=>esc(i.name)+" × "+i.qty).join(", ")}</td>
+ <td>${o.date}</td><td>Rs. ${o.total}</td><td>${o.status}</td></tr>`).join("")+"</table>";
+}
+function addCake(){
+ let name=v("cakeName"),category=v("cakeCategory");
+ let price=Number(v("cakePrice")),image=v("cakeImage");
+ let description=v("cakeDescription");
+ if(!name||!description||price<=0)return alert("Enter valid cake details");
+ if(image&&!/^https?:\\/\\//i.test(image))return alert("Image URL must start with http:// or https://");
+ cakes.push({id:Date.now(),name,category,price,image,description});
+ save();showCakes();alert("Cake added");
+}
+function updateOrder(){
+ let id=v("orderId");
+ let order=orders.find(o=>o.id===id);
+ if(!order)return alert("Order not found");
+ if(order.status==="Cancelled"||order.status==="Delivered")
+  return alert("This order is already closed");
+ order.status=v("orderStatus");save();showOrders();showAdminOrders();
+ alert("Order status updated");
+}
+function showAdminOrders(){
+ document.getElementById("adminOrders").innerHTML=
+ "<table><tr><th>Order ID</th><th>Customer</th><th>Address</th><th>Total</th><th>Status</th></tr>"+
+ orders.map(o=>`<tr><td>${o.id}</td><td>${esc(o.name)}</td>
+ <td>${esc(o.address)}</td><td>Rs. ${o.total}</td><td>${o.status}</td></tr>`).join("")+"</table>";
+}
+showCakes();showCart();showAdminOrders();
+</script>
+</body>
+</html>
